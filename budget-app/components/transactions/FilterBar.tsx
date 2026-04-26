@@ -26,11 +26,24 @@ export function FilterBar({
   onCategoryChange,
   onAccountChange,
 }: Props) {
+  const selectedCategoryLabel =
+    selectedCategory === 'all'
+      ? 'All categories'
+      : (() => {
+          const cat = categories.find((c) => c.id === selectedCategory)
+          return cat ? `${cat.icon} ${cat.name}` : 'All categories'
+        })()
+
+  const selectedAccountLabel =
+    selectedAccount === 'all'
+      ? 'All accounts'
+      : accounts.find((a) => a.id === selectedAccount)?.name ?? 'All accounts'
+
   return (
     <div className="flex flex-wrap gap-3">
       <Select value={selectedCategory} onValueChange={(val) => onCategoryChange(val ?? 'all')}>
         <SelectTrigger className="w-44 h-9 text-sm">
-          <SelectValue placeholder="All categories" />
+          <span className="truncate">{selectedCategoryLabel}</span>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All categories</SelectItem>
@@ -44,7 +57,7 @@ export function FilterBar({
 
       <Select value={selectedAccount} onValueChange={(val) => onAccountChange(val ?? 'all')}>
         <SelectTrigger className="w-44 h-9 text-sm">
-          <SelectValue placeholder="All accounts" />
+          <span className="truncate">{selectedAccountLabel}</span>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All accounts</SelectItem>
