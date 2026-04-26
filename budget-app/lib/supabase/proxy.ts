@@ -32,6 +32,13 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Redirect root to dashboard (authed) or login
+  if (pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = user ? '/dashboard' : '/login'
+    return NextResponse.redirect(url)
+  }
+
   // Public paths that don't require auth
   const isAuthRoute =
     pathname.startsWith('/login') ||
