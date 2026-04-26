@@ -23,7 +23,7 @@ export default async function SettingsPage() {
     .order('joined_at')
 
   const household = member.households as unknown as { id: string; name: string }
-  const memberList = (members ?? []) as Array<{
+  const memberList = (members ?? []) as unknown as Array<{
     id: string
     role: string
     joined_at: string
