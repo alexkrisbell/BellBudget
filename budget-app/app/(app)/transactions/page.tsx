@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { TransactionsClient } from '@/components/transactions/TransactionsClient'
@@ -38,10 +39,12 @@ export default async function TransactionsPage() {
           View and categorize your spending.
         </p>
       </div>
-      <TransactionsClient
-        categories={(categories ?? []) as Category[]}
-        accounts={(accounts ?? []) as Account[]}
-      />
+      <Suspense>
+        <TransactionsClient
+          categories={(categories ?? []) as Category[]}
+          accounts={(accounts ?? []) as Account[]}
+        />
+      </Suspense>
     </div>
   )
 }

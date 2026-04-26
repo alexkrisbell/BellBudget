@@ -17,7 +17,7 @@ export function CategoryProgressCard({ category }: Props) {
       : 'bg-green-100 text-green-700'
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-4 space-y-2.5">
+    <div className="rounded-xl border border-slate-100 bg-white p-4 space-y-2.5 hover:border-indigo-200 hover:shadow-sm transition-all">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xl leading-none shrink-0">{icon}</span>

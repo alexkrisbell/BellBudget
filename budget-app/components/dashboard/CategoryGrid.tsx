@@ -21,7 +21,9 @@ export function CategoryGrid({ categories }: Props) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
       {categories.map((cat) => (
-        <CategoryProgressCard key={cat.id} category={cat} />
+        <Link key={cat.id} href={`/transactions?category=${cat.id}`} className="block">
+          <CategoryProgressCard category={cat} />
+        </Link>
       ))}
     </div>
   )

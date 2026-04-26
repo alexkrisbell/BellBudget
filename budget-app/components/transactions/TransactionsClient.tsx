@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAppStore } from '@/store/appStore'
 import { useTransactions } from '@/hooks/useTransactions'
@@ -15,10 +16,13 @@ interface Props {
 
 export function TransactionsClient({ categories, accounts }: Props) {
   const queryClient = useQueryClient()
+  const searchParams = useSearchParams()
   const currentMonth = useAppStore((s) => s.currentMonth)
   const currentYear = useAppStore((s) => s.currentYear)
 
-  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [selectedCategory, setSelectedCategory] = useState(
+    searchParams.get('category') ?? 'all'
+  )
   const [selectedAccount, setSelectedAccount] = useState('all')
 
   const params = useMemo(
