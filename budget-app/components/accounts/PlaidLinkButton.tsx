@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { usePlaidLink } from 'react-plaid-link'
-import type { PlaidLinkOnSuccess } from 'react-plaid-link'
+import type { PlaidLinkOnSuccess, PlaidLinkOnEvent } from 'react-plaid-link'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 
@@ -49,10 +49,25 @@ export function PlaidLinkButton({ onSuccess }: Props) {
     [onSuccess]
   )
 
+  const handleEvent = useCallback<PlaidLinkOnEvent>((eventName, metadata) => {
+    if (eventName === 'ERROR') {
+      const msg = metadata.error_message ?? metadata.error_code ?? 'Unknown Plaid error'
+      console.error('[Plaid Link event]', eventName, metadata)
+      setError(`Plaid error: ${msg}`)
+      setLoading(false)
+      setLinkToken(null)
+    }
+  }, [])
+
   const { open, ready } = usePlaidLink({
     token: linkToken,
     onSuccess: handleSuccess,
-    onExit: () => {
+    onEvent: handleEvent,
+    onExit: (err) => {
+      if (err) {
+        const msg = err.display_message ?? err.error_message ?? err.error_code ?? 'Connection closed with error'
+        setError(msg)
+      }
       setLinkToken(null)
       setLoading(false)
     },

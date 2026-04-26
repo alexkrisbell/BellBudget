@@ -38,14 +38,16 @@ export async function POST(request: Request) {
     }
 
     // New connection
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
+    const redirectUri = appUrl ? `${appUrl}/plaid-oauth` : undefined
+    console.log('[create-link-token] env:', process.env.PLAID_ENV, 'redirect_uri:', redirectUri)
     const response = await plaidClient.linkTokenCreate({
       user: { client_user_id: user.id },
       client_name: 'Budget App',
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: 'en',
-      redirect_uri: appUrl ? `${appUrl}/plaid-oauth` : undefined,
+      redirect_uri: redirectUri,
       webhook: appUrl ? `${appUrl}/api/plaid/webhook` : undefined,
     })
     return Response.json({ link_token: response.data.link_token })
