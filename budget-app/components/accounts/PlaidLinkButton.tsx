@@ -37,6 +37,7 @@ export function PlaidLinkButton({ onSuccess }: Props) {
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? 'Failed to connect account.')
+        sessionStorage.removeItem('plaid_link_token')
         onSuccess?.()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to connect account.')
@@ -71,6 +72,8 @@ export function PlaidLinkButton({ onSuccess }: Props) {
       const res = await fetch('/api/plaid/create-link-token', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to initialize bank connection.')
+      // Save token so the /plaid-oauth callback page can resume OAuth connections
+      sessionStorage.setItem('plaid_link_token', data.link_token)
       setLinkToken(data.link_token)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
