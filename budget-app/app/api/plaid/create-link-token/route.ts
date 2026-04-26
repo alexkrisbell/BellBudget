@@ -49,8 +49,11 @@ export async function POST(request: Request) {
       webhook: appUrl ? `${appUrl}/api/plaid/webhook` : undefined,
     })
     return Response.json({ link_token: response.data.link_token })
-  } catch (err) {
-    console.error('Plaid link token error:', err)
-    return Response.json({ error: 'Failed to create link token.' }, { status: 500 })
+  } catch (err: unknown) {
+    const plaidMsg =
+      (err as { response?: { data?: { error_message?: string } } })?.response?.data?.error_message
+    const message = plaidMsg ?? (err instanceof Error ? err.message : 'Failed to create link token.')
+    console.error('Plaid link token error:', message)
+    return Response.json({ error: message }, { status: 500 })
   }
 }
