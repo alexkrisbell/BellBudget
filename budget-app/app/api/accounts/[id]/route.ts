@@ -1,10 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+
+  // Auth check via user client
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,7 +22,9 @@ export async function PATCH(
   const name = typeof body.name === 'string' ? body.name.trim() : null
   if (!name) return Response.json({ error: 'Name is required.' }, { status: 400 })
 
-  const { error } = await supabase
+  // accounts table has no UPDATE RLS policy (writes are service-role only)
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('accounts')
     .update({ name })
     .eq('id', id)

@@ -17,8 +17,12 @@ export function SyncButton() {
       // Register webhooks on all existing items (idempotent, ensures live updates)
       await fetch('/api/plaid/register-webhooks', { method: 'POST' })
 
-      // Trigger a full sync
-      const res = await fetch('/api/plaid/sync', { method: 'POST' })
+      // Trigger a full sync from the beginning (force resets the cursor)
+      const res = await fetch('/api/plaid/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      })
       const data = await res.json()
 
       if (!res.ok) {

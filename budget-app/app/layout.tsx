@@ -8,8 +8,11 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 export const metadata: Metadata = {
   title: 'Bell Bucks',
   description: 'Household budgeting dashboard',
-  icons: {
-    icon: '/BellBucks.ico',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Bell Bucks',
   },
 }
 

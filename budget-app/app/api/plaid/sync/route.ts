@@ -35,9 +35,9 @@ export async function POST(request: Request) {
   }
   lastSyncTime.set(member.household_id, now)
 
-  // Optional: sync a specific item or all active items
   const body = await request.json().catch(() => ({}))
   const specificItemId = body?.item_id as string | undefined
+  const force = body?.force === true
 
   const admin = createAdminClient()
   let query = admin
@@ -51,6 +51,13 @@ export async function POST(request: Request) {
   }
 
   const { data: items } = await query
+
+  // Force mode: reset all cursors so Plaid re-sends everything from the beginning.
+  // Safe because the upsert uses ignoreDuplicates so existing rows are untouched.
+  if (force && items && items.length > 0) {
+    const ids = items.map((i: { id: string }) => i.id)
+    await admin.from('plaid_items').update({ cursor: null }).in('id', ids)
+  }
 
   if (!items || items.length === 0) {
     return Response.json({ message: 'No active accounts to sync.' })
