@@ -13,7 +13,7 @@ export default async function SetupLayout({ children }: { children: React.ReactN
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Budget App</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Bell Bucks</h1>
           <p className="text-sm text-slate-500 mt-1">Let&apos;s get you set up</p>
         </div>
         {children}

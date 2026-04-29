@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
       const response = await plaidClient.linkTokenCreate({
         user: { client_user_id: user.id },
-        client_name: 'Budget App',
+        client_name: 'Bell Bucks',
         access_token: accessToken as string,
         country_codes: [CountryCode.Us],
         language: 'en',
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     console.log('[create-link-token] env:', process.env.PLAID_ENV, 'redirect_uri:', redirectUri)
     const response = await plaidClient.linkTokenCreate({
       user: { client_user_id: user.id },
-      client_name: 'Budget App',
+      client_name: 'Bell Bucks',
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: 'en',

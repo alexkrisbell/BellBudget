@@ -51,13 +51,14 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient()
 
-    // Check if this institution is already connected for this household.
-    // If so, update the existing connection instead of creating a duplicate.
+    // Check if this exact Plaid item is already stored (e.g. duplicate click).
+    // Dedup on plaid_item_id (not institution_id) so that two household members
+    // can each connect their own accounts at the same bank.
     const { data: existingItem } = await admin
       .from('plaid_items')
       .select('id, access_token_vault_id')
       .eq('household_id', member.household_id)
-      .eq('institution_id', institution_id)
+      .eq('plaid_item_id', item_id)
       .neq('status', 'inactive')
       .maybeSingle()
 

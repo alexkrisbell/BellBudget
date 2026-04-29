@@ -32,7 +32,7 @@ export function TopBar({ title, userFullName, householdId = null }: TopBarProps)
     <>
       <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-white border-b border-slate-100 sticky top-0 z-40">
         <h1 className="text-base font-semibold text-slate-800 md:hidden">
-          {title ?? 'Budget App'}
+          {title ?? 'Bell Bucks'}
         </h1>
         <div className="hidden md:block" />
 

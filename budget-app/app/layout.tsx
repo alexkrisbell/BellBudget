@@ -6,8 +6,11 @@ import { Providers } from '@/components/providers'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'Budget App',
+  title: 'Bell Bucks',
   description: 'Household budgeting dashboard',
+  icons: {
+    icon: '/BellBucks.ico',
+  },
 }
 
 export default function RootLayout({

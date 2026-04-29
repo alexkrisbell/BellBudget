@@ -18,7 +18,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex w-60 flex-col bg-white border-r border-slate-100 min-h-screen">
       <div className="h-16 flex items-center px-6 border-b border-slate-100">
-        <span className="text-lg font-bold text-slate-900">Budget App</span>
+        <span className="text-lg font-bold text-slate-900">Bell Bucks</span>
       </div>
       <nav className="flex-1 py-4 px-3 space-y-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {

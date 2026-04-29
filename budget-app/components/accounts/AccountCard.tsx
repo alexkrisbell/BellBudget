@@ -1,9 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Pencil, Check, X } from 'lucide-react'
 import { ReconnectButton } from './ReconnectButton'
 import type { Account, PlaidItem } from '@/types'
 import { formatCurrency } from '@/lib/utils'
@@ -23,6 +24,104 @@ const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   loan: 'Loan',
   investment: 'Investment',
   other: 'Other',
+}
+
+function AccountRow({ account }: { account: Account }) {
+  const router = useRouter()
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(account.name)
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    if (name.trim() === account.name || !name.trim()) {
+      setEditing(false)
+      setName(account.name)
+      return
+    }
+    setSaving(true)
+    const res = await fetch(`/api/accounts/${account.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    })
+    setSaving(false)
+    if (res.ok) {
+      setEditing(false)
+      router.refresh()
+    } else {
+      setName(account.name)
+      setEditing(false)
+    }
+  }
+
+  function cancel() {
+    setName(account.name)
+    setEditing(false)
+  }
+
+  return (
+    <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+      <div className="flex-1 min-w-0 mr-2">
+        {editing ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') save()
+                if (e.key === 'Escape') cancel()
+              }}
+              className="text-sm font-medium text-slate-800 bg-white border border-indigo-300 rounded px-2 py-0.5 w-full focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            />
+            <button
+              onClick={save}
+              disabled={saving}
+              className="text-green-600 hover:text-green-700 shrink-0"
+              aria-label="Save"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={cancel}
+              className="text-slate-400 hover:text-slate-600 shrink-0"
+              aria-label="Cancel"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 group">
+            <p className="text-sm font-medium text-slate-800 truncate">{name}</p>
+            <button
+              onClick={() => setEditing(true)}
+              className="text-slate-300 hover:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              aria-label="Rename account"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-slate-400">
+          {ACCOUNT_TYPE_LABEL[account.type] ?? account.type}
+          {account.subtype ? ` · ${account.subtype}` : ''}
+        </p>
+      </div>
+      <div className="text-right shrink-0">
+        {account.current_balance != null && (
+          <p className="text-sm font-semibold text-slate-800">
+            {formatCurrency(account.current_balance)}
+          </p>
+        )}
+        {account.available_balance != null &&
+          account.available_balance !== account.current_balance && (
+            <p className="text-xs text-slate-400">
+              {formatCurrency(account.available_balance)} available
+            </p>
+          )}
+      </div>
+    </div>
+  )
 }
 
 export function AccountCard({ group }: Props) {
@@ -75,31 +174,7 @@ export function AccountCard({ group }: Props) {
           </div>
         )}
         {accounts.map((account) => (
-          <div
-            key={account.id}
-            className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
-          >
-            <div>
-              <p className="text-sm font-medium text-slate-800">{account.name}</p>
-              <p className="text-xs text-slate-400">
-                {ACCOUNT_TYPE_LABEL[account.type] ?? account.type}
-                {account.subtype ? ` · ${account.subtype}` : ''}
-              </p>
-            </div>
-            <div className="text-right">
-              {account.current_balance != null && (
-                <p className="text-sm font-semibold text-slate-800">
-                  {formatCurrency(account.current_balance)}
-                </p>
-              )}
-              {account.available_balance != null &&
-                account.available_balance !== account.current_balance && (
-                  <p className="text-xs text-slate-400">
-                    {formatCurrency(account.available_balance)} available
-                  </p>
-                )}
-            </div>
-          </div>
+          <AccountRow key={account.id} account={account} />
         ))}
         {accounts.length === 0 && (
           <p className="text-sm text-slate-400">No accounts found.</p>
