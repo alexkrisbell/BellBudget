@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   const txList = (allTxs ?? []).filter((tx) => !tx.excluded && !tx.pending)
   const incomeTxs = txList.filter((tx) => tx.is_income)
   const incomeInExpenseCategory = incomeTxs.filter((tx) => {
-    const cat = tx.category as { name: string; is_income: boolean } | null
+    const cat = tx.category as unknown as { name: string; is_income: boolean } | null
     return cat && !cat.is_income
   })
 
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       id: tx.id,
       merchant: tx.merchant_name ?? tx.description,
       amount: tx.amount,
-      category: (tx.category as { name: string } | null)?.name,
+      category: (tx.category as unknown as { name: string } | null)?.name,
     })),
     net_actual_by_category: actualByCategory,
   })

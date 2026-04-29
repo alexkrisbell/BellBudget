@@ -111,14 +111,18 @@ export async function GET(request: Request) {
     if (!incomeByCat[key]) incomeByCat[key] = { cat: tx.category, amount: 0 }
     incomeByCat[key].amount += Math.abs(tx.amount)
   }
+  type CatShape = { id: string; name: string; icon: string; color: string } | null
   const incomeSources = Object.values(incomeByCat)
-    .map(({ cat, amount }) => ({
-      id: (cat as { id: string } | null)?.id ?? '__none__',
-      name: (cat as { name: string } | null)?.name ?? 'Other Income',
-      icon: (cat as { icon: string } | null)?.icon ?? '💵',
-      color: (cat as { color: string } | null)?.color ?? '#6B7280',
-      amount,
-    }))
+    .map(({ cat, amount }) => {
+      const c = cat as unknown as CatShape
+      return {
+        id: c?.id ?? '__none__',
+        name: c?.name ?? 'Other Income',
+        icon: c?.icon ?? '💵',
+        color: c?.color ?? '#6B7280',
+        amount,
+      }
+    })
     .sort((a, b) => b.amount - a.amount)
 
   const recentTransactions = expenseTxs.slice(0, 5).map((tx) => ({
