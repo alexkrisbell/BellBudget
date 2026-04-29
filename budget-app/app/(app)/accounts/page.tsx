@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { AccountCard } from '@/components/accounts/AccountCard'
 import { PlaidLinkButton } from '@/components/accounts/PlaidLinkButton'
+import { SyncButton } from '@/components/accounts/SyncButton'
 import type { Account, PlaidItem } from '@/types'
 
 export default async function AccountsPage() {
@@ -58,7 +59,10 @@ export default async function AccountsPage() {
             Manage your bank and credit card connections.
           </p>
         </div>
-        <PlaidLinkButton />
+        <div className="flex items-center gap-2">
+          <SyncButton />
+          <PlaidLinkButton />
+        </div>
       </div>
 
       {groups.length === 0 ? (

@@ -27,12 +27,14 @@ export async function POST(request: Request) {
       })
       if (!accessToken) return Response.json({ error: 'Failed to retrieve token.' }, { status: 500 })
 
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
       const response = await plaidClient.linkTokenCreate({
         user: { client_user_id: user.id },
         client_name: 'Budget App',
         access_token: accessToken as string,
         country_codes: [CountryCode.Us],
         language: 'en',
+        webhook: appUrl ? `${appUrl}/api/plaid/webhook` : undefined,
       })
       return Response.json({ link_token: response.data.link_token })
     }
