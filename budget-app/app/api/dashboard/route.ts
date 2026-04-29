@@ -67,7 +67,7 @@ export async function GET(request: Request) {
 
   // Actuals by category
   const actualByCategory: Record<string, number> = {}
-  for (const tx of expenseTxs) {
+  for (const tx of txList) {
     if (tx.category_id) {
       actualByCategory[tx.category_id] = (actualByCategory[tx.category_id] ?? 0) + tx.amount
     }
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
   const categories = budgetItems.map((item) => {
     const actual = actualByCategory[item.category_id] ?? 0
     const planned = item.planned_amount
-    const pct = planned > 0 ? Math.round((actual / planned) * 100) : 0
+    const pct = planned > 0 ? Math.round((Math.max(0, actual) / planned) * 100) : 0
     return {
       id: item.category?.id ?? item.category_id,
       name: item.category?.name ?? 'Unknown',
@@ -96,12 +96,30 @@ export async function GET(request: Request) {
   })
 
   const totalBudgeted = budgetItems.reduce((s, i) => s + i.planned_amount, 0)
-  const totalSpent = expenseTxs.reduce((s, tx) => s + tx.amount, 0)
+  const totalSpent = budgetItems.reduce((s, item) => s + Math.max(0, actualByCategory[item.category_id] ?? 0), 0)
   const totalRemaining = totalBudgeted - totalSpent
   const pctUsed = totalBudgeted > 0 ? Math.round((totalSpent / totalBudgeted) * 100) : 0
   const onTrack = totalBudgeted === 0 || totalSpent <= totalBudgeted
 
   const totalActualIncome = incomeTxs.reduce((s, tx) => s + Math.abs(tx.amount), 0)
+
+  // Group income by category
+  type TxWithCat = typeof incomeTxs[number]
+  const incomeByCat: Record<string, { cat: TxWithCat['category']; amount: number }> = {}
+  for (const tx of incomeTxs) {
+    const key = tx.category_id ?? '__none__'
+    if (!incomeByCat[key]) incomeByCat[key] = { cat: tx.category, amount: 0 }
+    incomeByCat[key].amount += Math.abs(tx.amount)
+  }
+  const incomeSources = Object.values(incomeByCat)
+    .map(({ cat, amount }) => ({
+      id: (cat as { id: string } | null)?.id ?? '__none__',
+      name: (cat as { name: string } | null)?.name ?? 'Other Income',
+      icon: (cat as { icon: string } | null)?.icon ?? '💵',
+      color: (cat as { color: string } | null)?.color ?? '#6B7280',
+      amount,
+    }))
+    .sort((a, b) => b.amount - a.amount)
 
   const recentTransactions = expenseTxs.slice(0, 5).map((tx) => ({
     id: tx.id,
@@ -122,6 +140,7 @@ export async function GET(request: Request) {
     income: {
       expected: budget?.total_income_expected ?? null,
       actual: totalActualIncome,
+      sources: incomeSources,
     },
     streak: {
       current: streak?.current_streak ?? 0,

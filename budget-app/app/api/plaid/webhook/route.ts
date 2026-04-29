@@ -8,14 +8,13 @@ export async function POST(request: Request) {
 
   // Verify webhook authenticity using Plaid's key verification
   const webhookVerificationKey = request.headers.get('plaid-verification')
-  if (webhookVerificationKey) {
-    try {
-      await plaidClient.webhookVerificationKeyGet({
-        key_id: webhookVerificationKey,
-      })
-    } catch {
-      return Response.json({ error: 'Invalid webhook signature.' }, { status: 401 })
-    }
+  if (!webhookVerificationKey) {
+    return Response.json({ error: 'Missing webhook verification.' }, { status: 401 })
+  }
+  try {
+    await plaidClient.webhookVerificationKeyGet({ key_id: webhookVerificationKey })
+  } catch {
+    return Response.json({ error: 'Invalid webhook signature.' }, { status: 401 })
   }
 
   const admin = createAdminClient()

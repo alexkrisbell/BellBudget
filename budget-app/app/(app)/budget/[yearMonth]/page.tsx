@@ -46,7 +46,6 @@ async function getBudgetData(
         .from('transactions')
         .select('category_id, amount')
         .eq('household_id', householdId)
-        .eq('is_income', false)
         .eq('excluded', false)
         .eq('pending', false)
         .gte('date', start)
@@ -62,7 +61,7 @@ async function getBudgetData(
 
     items = (rawItems ?? []).map((item) => {
       const actual = actualByCategory[item.category_id] ?? 0
-      const pct = item.planned_amount > 0 ? Math.round((actual / item.planned_amount) * 100) : 0
+      const pct = item.planned_amount > 0 ? Math.round((Math.max(0, actual) / item.planned_amount) * 100) : 0
       return { ...item, actual, pct }
     })
   }

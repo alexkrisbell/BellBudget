@@ -4,13 +4,46 @@ import { categorizeBatch } from '@/lib/categorization/engine'
 import { createNotification } from '@/lib/notifications/create'
 import type { RemovedTransaction, Transaction as PlaidTransaction } from 'plaid'
 
-// Credit card payments, account transfers, and loan payments should not count
-// against a budget — they're moving money, not spending it.
-const TRANSFER_CATEGORIES = new Set(['TRANSFER_IN', 'TRANSFER_OUT', 'LOAN_PAYMENTS'])
+// Internal account transfers (e.g. paying a credit card bill from checking, moving money
+// between own accounts) should be excluded — they're not real spending.
+// External payments like Zelle to a landlord or utility are real expenses and must NOT
+// be excluded, even though Plaid labels them TRANSFER_OUT.
+// We distinguish them via the detailed subcategory:
+//   TRANSFER_OUT_ACCOUNT_TRANSFER → internal (exclude)
+//   TRANSFER_OUT_SAVINGS           → internal (exclude)
+//   TRANSFER_OUT_DEPOSIT           → external Zelle/Venmo (keep)
+//   TRANSFER_IN_ACCOUNT_TRANSFER   → internal (exclude)
+const INTERNAL_TRANSFER_DETAILS = new Set([
+  'TRANSFER_OUT_ACCOUNT_TRANSFER',
+  'TRANSFER_OUT_SAVINGS',
+  'TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS',
+  'TRANSFER_IN_ACCOUNT_TRANSFER',
+])
 
 function isTransfer(tx: PlaidTransaction): boolean {
   const primary = (tx.personal_finance_category?.primary ?? '').toUpperCase()
-  return TRANSFER_CATEGORIES.has(primary)
+  const detailed = (tx.personal_finance_category?.detailed ?? '').toUpperCase()
+
+  if (primary === 'LOAN_PAYMENTS') return true
+
+  // For transfer categories, only exclude internal account-to-account moves
+  if (primary === 'TRANSFER_OUT' || primary === 'TRANSFER_IN') {
+    // If we have detailed data, use it to decide; otherwise fall back to excluding all transfers
+    // so credit card payments aren't double-counted when detailed data is unavailable
+    if (detailed) return INTERNAL_TRANSFER_DETAILS.has(detailed)
+    return true
+  }
+
+  return false
+}
+
+// Merchant keyword patterns that should always be excluded regardless of Plaid category.
+// These are credit card payments or pass-through charges that would double-count spending.
+const ALWAYS_EXCLUDE_KEYWORDS = ['amex epayment', 'amex payment']
+
+function shouldAlwaysExclude(tx: PlaidTransaction): boolean {
+  const name = ((tx.merchant_name ?? tx.name) ?? '').toLowerCase()
+  return ALWAYS_EXCLUDE_KEYWORDS.some((kw) => name.includes(kw))
 }
 
 export interface SyncResult {
@@ -41,7 +74,7 @@ export async function syncTransactions(itemId: string): Promise<SyncResult> {
   if (tokenError || !tokenData) throw new Error('Failed to retrieve Plaid access token from vault')
   const accessToken = tokenData as string
 
-  // Load system categories once (name → id map, lowercase keys)
+  // Load system categories once (name → id map + income category id set)
   const { data: categories } = await supabase
     .from('categories')
     .select('id, name')
@@ -95,7 +128,7 @@ export async function syncTransactions(itemId: string): Promise<SyncResult> {
           categorization_source: cat?.source ?? 'plaid',
           is_income: tx.amount < 0,
           pending: tx.pending,
-          excluded: isTransfer(tx),
+          excluded: isTransfer(tx) || shouldAlwaysExclude(tx),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }
@@ -216,7 +249,6 @@ async function triggerNotifications(
     .from('transactions')
     .select('category_id, amount')
     .eq('household_id', householdId)
-    .eq('is_income', false)
     .eq('excluded', false)
     .eq('pending', false)
     .gte('date', start)
@@ -247,8 +279,6 @@ async function triggerNotifications(
     if (n.type === 'budget_exceeded') alreadySentExceeded.add(catId)
   }
 
-  // Check each affected category
-  const affectedCategoryIds = new Set(expenseTxs.map((tx) => tx.personal_finance_category?.primary))
   for (const item of budgetItems) {
     if (item.planned_amount <= 0) continue
     const actual = actualByCategory[item.category_id] ?? 0
@@ -272,7 +302,5 @@ async function triggerNotifications(
         metadata: { category_id: item.category_id, pct_used: Math.round(pct) },
       })
     }
-
-    void affectedCategoryIds // suppress unused var warning
   }
 }

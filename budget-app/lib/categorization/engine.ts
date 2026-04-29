@@ -16,14 +16,24 @@ const PLAID_CATEGORY_MAP: Record<string, string> = {
   RENT_AND_UTILITIES: 'Utilities',
   LOAN_PAYMENTS: 'Other',
   BANK_FEES: 'Other',
-  TRANSFER_IN: 'Transfer',
-  TRANSFER_OUT: 'Transfer',
+  TRANSFER_IN: 'Other Income',
+  TRANSFER_OUT: 'Other',
   INCOME: 'Paycheck',
   GOVERNMENT_AND_NON_PROFIT: 'Other',
   GENERAL_SERVICES: 'Other',
   EDUCATION: 'Education',
   INSURANCE: 'Insurance',
 }
+
+// Keyword rules that apply to all households before AI categorization.
+// These catch merchants that Plaid miscategorizes or under-categorizes.
+// Format: { keyword (lowercase), target category name (lowercase) }
+const BUILT_IN_KEYWORD_RULES: Array<{ keyword: string; category: string }> = [
+  // Resy is a restaurant reservation platform — always Dining Out
+  { keyword: 'resy', category: 'dining out' },
+  // USAA Insurance charges are car/auto insurance — Transportation, not Insurance
+  { keyword: 'usaa insurance', category: 'transportation' },
+]
 
 export interface CategorizationResult {
   category_id: string | null
@@ -54,7 +64,19 @@ export async function categorizeBatch(
       continue
     }
 
-    // 2. Plaid personal_finance_category mapping
+    // 2. Built-in keyword overrides — fix merchants Plaid miscategorizes
+    // These run before Plaid's category mapping so they take priority.
+    const normalizedMerchant = normalizeMerchant(merchant)
+    const builtInMatch = BUILT_IN_KEYWORD_RULES.find((r) =>
+      normalizedMerchant.includes(r.keyword)
+    )
+    if (builtInMatch) {
+      const categoryId = categoryByName.get(builtInMatch.category) ?? null
+      results.set(tx.transaction_id, { category_id: categoryId, source: 'rule' })
+      continue
+    }
+
+    // 3. Plaid personal_finance_category mapping
     const plaidPrimary = tx.personal_finance_category?.primary ?? ''
     const plaidCategoryName = PLAID_CATEGORY_MAP[plaidPrimary]
     if (plaidCategoryName) {
@@ -63,16 +85,15 @@ export async function categorizeBatch(
       continue
     }
 
-    // 3. Queue for AI
-    const normalized = normalizeMerchant(merchant)
-    if (!pendingAI.has(normalized)) {
-      pendingAI.set(normalized, [])
-      normalizedToOriginal.set(normalized, merchant)
+    // 4. Queue for AI
+    if (!pendingAI.has(normalizedMerchant)) {
+      pendingAI.set(normalizedMerchant, [])
+      normalizedToOriginal.set(normalizedMerchant, merchant)
     }
-    pendingAI.get(normalized)!.push(tx.transaction_id)
+    pendingAI.get(normalizedMerchant)!.push(tx.transaction_id)
   }
 
-  // 4. Batch AI call for merchants that need it
+  // 5. Batch AI categorization for queued merchants
   if (pendingAI.size > 0) {
     const uniqueMerchants = [...pendingAI.keys()].map(
       (norm) => normalizedToOriginal.get(norm)!
@@ -83,14 +104,14 @@ export async function categorizeBatch(
       const categoryId = categoryByName.get(categoryName.toLowerCase()) ?? null
       if (!categoryId) continue
 
-      const normalized = normalizeMerchant(originalMerchant)
-      const txIds = pendingAI.get(normalized) ?? []
+      const normalizedKey = normalizeMerchant(originalMerchant)
+      const txIds = pendingAI.get(normalizedKey) ?? []
 
       // Store as AI rule so future syncs skip OpenAI for this merchant
       await supabase.from('categorization_rules').upsert(
         {
           household_id: householdId,
-          merchant_keyword: normalized,
+          merchant_keyword: normalizedKey,
           category_id: categoryId,
           match_type: 'contains',
           priority: 5,
@@ -106,7 +127,7 @@ export async function categorizeBatch(
     }
   }
 
-  // 5. Fallback: "Other" for anything still unresolved
+  // 6. Fallback: "Other" for anything still unresolved
   const otherCategoryId = categoryByName.get('other') ?? null
   for (const tx of transactions) {
     if (!results.has(tx.transaction_id)) {

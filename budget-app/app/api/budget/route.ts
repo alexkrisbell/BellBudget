@@ -130,13 +130,14 @@ export async function POST(request: Request) {
         .eq('budget_id', copy_from)
 
       if (sourceItems && sourceItems.length > 0) {
-        await supabase
+        const { error: copyError } = await supabase
           .from('budget_items')
           .insert(sourceItems.map((si) => ({ ...si, budget_id: budget.id })))
+        if (copyError) return Response.json({ error: copyError.message }, { status: 500 })
       }
     }
   } else if (Array.isArray(itemsInput) && itemsInput.length > 0) {
-    await supabase.from('budget_items').insert(
+    const { error: itemsError } = await supabase.from('budget_items').insert(
       itemsInput.map((item: { category_id: string; planned_amount: number }, idx: number) => ({
         budget_id: budget.id,
         category_id: item.category_id,
@@ -144,6 +145,7 @@ export async function POST(request: Request) {
         sort_order: idx,
       }))
     )
+    if (itemsError) return Response.json({ error: itemsError.message }, { status: 500 })
   }
 
   return Response.json({ budget }, { status: 201 })

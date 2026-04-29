@@ -20,6 +20,9 @@ export async function GET(request: Request) {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
   const limit = Math.min(100, parseInt(searchParams.get('limit') ?? '50'))
   const offset = (page - 1) * limit
+  // When excluded=true, return only hidden transactions so the UI can display a "re-include" list
+  const showExcluded = searchParams.get('excluded') === 'true'
+  const incomeOnly = searchParams.get('income') === 'true'
 
   // Date range for the requested month
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`
@@ -32,13 +35,14 @@ export async function GET(request: Request) {
       { count: 'exact' }
     )
     .eq('household_id', member.household_id)
-    .eq('excluded', false)
+    .eq('excluded', showExcluded)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
+  if (incomeOnly) query = query.eq('is_income', true) as typeof query
   if (categoryId) query = query.eq('category_id', categoryId) as typeof query
   if (accountId) query = query.eq('account_id', accountId) as typeof query
 

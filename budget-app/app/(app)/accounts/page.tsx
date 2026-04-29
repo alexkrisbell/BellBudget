@@ -17,11 +17,12 @@ export default async function AccountsPage() {
 
   if (!member) redirect('/onboarding')
 
-  // Fetch all plaid items for this household
+  // Fetch all plaid items for this household (exclude deactivated/superseded connections)
   const { data: plaidItems } = await supabase
     .from('plaid_items')
     .select('*')
     .eq('household_id', member.household_id)
+    .neq('status', 'inactive')
     .order('created_at', { ascending: false })
 
   // Fetch all accounts grouped by plaid_item

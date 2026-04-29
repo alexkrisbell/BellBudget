@@ -36,7 +36,11 @@ export function CategoryProgressCard({ category }: Props) {
       </div>
 
       <div className="flex items-center justify-between text-xs text-slate-400">
-        <span>${actual.toLocaleString()} spent</span>
+        {actual <= 0 ? (
+          <span className="text-green-600 font-medium">+${Math.abs(actual).toLocaleString()} net credit</span>
+        ) : (
+          <span>${actual.toLocaleString()} spent</span>
+        )}
         <span>${planned.toLocaleString()} planned</span>
       </div>
     </div>

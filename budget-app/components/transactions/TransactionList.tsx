@@ -14,6 +14,7 @@ interface Props {
   hasMore?: boolean
   isLoading?: boolean
   onExclude?: (txId: string) => void
+  onInclude?: (txId: string) => void
 }
 
 export function TransactionList({
@@ -24,6 +25,7 @@ export function TransactionList({
   hasMore,
   isLoading,
   onExclude,
+  onInclude,
 }: Props) {
   const queryClient = useQueryClient()
 
@@ -111,6 +113,7 @@ export function TransactionList({
                   categories={categories}
                   onCategoryUpdate={handleCategoryUpdate}
                   onExclude={onExclude}
+                  onInclude={onInclude}
                 />
               </div>
             ))}

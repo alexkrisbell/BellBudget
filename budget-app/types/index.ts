@@ -189,6 +189,14 @@ export interface RecentTransaction {
   category?: { id: string; name: string; color: string; icon: string } | null
 }
 
+export interface IncomeSource {
+  id: string
+  name: string
+  icon: string
+  color: string
+  amount: number
+}
+
 export interface DashboardData {
   total_budgeted: number
   total_spent: number
@@ -198,6 +206,7 @@ export interface DashboardData {
   income: {
     expected: number | null
     actual: number
+    sources: IncomeSource[]
   }
   streak: {
     current: number

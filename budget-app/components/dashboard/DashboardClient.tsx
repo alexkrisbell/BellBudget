@@ -72,7 +72,7 @@ export function DashboardClient({ initialData, initialMonth, initialYear }: Prop
 
       <CategoryGrid categories={d.categories} />
 
-      <IncomeStrip expected={d.income.expected} actual={d.income.actual} />
+      <IncomeStrip expected={d.income.expected} actual={d.income.actual} sources={d.income.sources} />
 
       <RecentTransactions transactions={d.recent_transactions} />
     </div>

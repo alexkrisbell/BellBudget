@@ -44,7 +44,7 @@ export async function PATCH(
   const merchantSource = transaction.merchant_name ?? transaction.description
   if (merchantSource) {
     const keyword = normalizeMerchant(merchantSource)
-    await admin.from('categorization_rules').upsert(
+    const { error: ruleError } = await admin.from('categorization_rules').upsert(
       {
         household_id: member.household_id,
         merchant_keyword: keyword,
@@ -56,6 +56,7 @@ export async function PATCH(
       },
       { onConflict: 'household_id,merchant_keyword' }
     )
+    if (ruleError) console.error('Failed to save categorization rule:', ruleError.message)
   }
 
   return Response.json({ transaction })

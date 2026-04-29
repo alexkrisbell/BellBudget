@@ -8,6 +8,8 @@ interface TransactionParams {
   year: number
   categoryId?: string
   accountId?: string
+  excluded?: boolean
+  income?: boolean
 }
 
 async function fetchPage(
@@ -20,15 +22,20 @@ async function fetchPage(
     page: String(page),
     limit: '50',
   })
+  if (params.income) sp.set('income', 'true')
   if (params.categoryId) sp.set('category_id', params.categoryId)
   if (params.accountId) sp.set('account_id', params.accountId)
+  if (params.excluded) sp.set('excluded', 'true')
 
   const res = await fetch(`/api/transactions?${sp}`)
   if (!res.ok) throw new Error('Failed to fetch transactions')
   return res.json()
 }
 
-export function useTransactions(params: TransactionParams) {
+export function useTransactions(
+  params: TransactionParams,
+  options?: { enabled?: boolean }
+) {
   return useInfiniteQuery({
     queryKey: ['transactions', params],
     queryFn: ({ pageParam }) => fetchPage(params, pageParam as number),
@@ -38,5 +45,6 @@ export function useTransactions(params: TransactionParams) {
       return (lastPageParam as number) + 1
     },
     staleTime: 60 * 1000,
+    enabled: options?.enabled !== false,
   })
 }
