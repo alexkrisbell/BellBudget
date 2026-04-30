@@ -36,6 +36,7 @@ export async function GET(request: Request) {
     )
     .eq('household_id', member.household_id)
     .eq('excluded', showExcluded)
+    .eq('pending', false)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: false })
