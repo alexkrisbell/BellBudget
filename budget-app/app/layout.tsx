@@ -8,7 +8,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 export const metadata: Metadata = {
   title: 'Bell Bucks',
   description: 'Household budgeting dashboard',
-  manifest: '/manifest.json',
+  // app/manifest.ts is auto-detected by Next.js — do not also set manifest here
+  // or Chrome gets two <link rel="manifest"> tags and may ignore both.
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
