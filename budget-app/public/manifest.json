@@ -10,25 +10,25 @@
   "theme_color": "#4f46e5",
   "icons": [
     {
-      "src": "/bb-icon-192.png",
+      "src": "https://bell-budget-8wmo.vercel.app/Icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/bb-icon-192.png",
+      "src": "https://bell-budget-8wmo.vercel.app/Icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/bb-icon-512.png",
+      "src": "https://bell-budget-8wmo.vercel.app/Icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/bb-icon-512.png",
+      "src": "https://bell-budget-8wmo.vercel.app/Icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
