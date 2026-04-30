@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, Pencil, Check, X } from 'lucide-react'
+import { AlertCircle, Pencil, Check, X, Unlink } from 'lucide-react'
 import { ReconnectButton } from './ReconnectButton'
 import type { Account, PlaidItem } from '@/types'
 import { formatCurrency } from '@/lib/utils'
@@ -12,10 +12,13 @@ import { formatCurrency } from '@/lib/utils'
 interface AccountGroup {
   item: PlaidItem
   accounts: Account[]
+  memberName?: string | null
+  txCount?: number
 }
 
 interface Props {
   group: AccountGroup
+  txCount?: number
 }
 
 const ACCOUNT_TYPE_LABEL: Record<string, string> = {
@@ -74,19 +77,10 @@ function AccountRow({ account }: { account: Account }) {
               }}
               className="text-sm font-medium text-slate-800 bg-white border border-indigo-300 rounded px-2 py-0.5 w-full focus:outline-none focus:ring-1 focus:ring-indigo-400"
             />
-            <button
-              onClick={save}
-              disabled={saving}
-              className="text-green-600 hover:text-green-700 shrink-0"
-              aria-label="Save"
-            >
+            <button onClick={save} disabled={saving} className="text-green-600 hover:text-green-700 shrink-0" aria-label="Save">
               <Check className="h-3.5 w-3.5" />
             </button>
-            <button
-              onClick={cancel}
-              className="text-slate-400 hover:text-slate-600 shrink-0"
-              aria-label="Cancel"
-            >
+            <button onClick={cancel} className="text-slate-400 hover:text-slate-600 shrink-0" aria-label="Cancel">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -116,7 +110,7 @@ function AccountRow({ account }: { account: Account }) {
         {account.available_balance != null &&
           account.available_balance !== account.current_balance && (
             <p className="text-xs text-slate-400">
-              {formatCurrency(account.available_balance)} available
+              {formatCurrency(account.available_balance)} avail.
             </p>
           )}
       </div>
@@ -124,40 +118,132 @@ function AccountRow({ account }: { account: Account }) {
   )
 }
 
-export function AccountCard({ group }: Props) {
+export function AccountCard({ group, txCount }: Props) {
   const router = useRouter()
   const { item, accounts } = group
   const needsReauth = item.status === 'requires_reauth'
   const hasError = item.status === 'error'
 
+  // Institution name inline edit
+  const [editingName, setEditingName] = useState(false)
+  const [instName, setInstName] = useState(item.institution_name)
+  const [savingName, setSavingName] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  async function saveInstName() {
+    if (instName.trim() === item.institution_name || !instName.trim()) {
+      setEditingName(false)
+      setInstName(item.institution_name)
+      return
+    }
+    setSavingName(true)
+    const res = await fetch(`/api/plaid-items/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ institution_name: instName.trim() }),
+    })
+    setSavingName(false)
+    if (res.ok) {
+      setEditingName(false)
+      router.refresh()
+    } else {
+      setInstName(item.institution_name)
+      setEditingName(false)
+    }
+  }
+
+  async function disconnect() {
+    if (!confirm(`Disconnect ${instName}? Existing transactions will remain.`)) return
+    setDisconnecting(true)
+    await fetch(`/api/plaid-items/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'disconnect' }),
+    })
+    router.refresh()
+  }
+
+  const txLabel = txCount != null
+    ? txCount === 0 ? 'No transactions synced' : `${txCount.toLocaleString()} transaction${txCount === 1 ? '' : 's'}`
+    : null
+
   return (
     <Card className={needsReauth || hasError ? 'border-red-200' : ''}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-semibold">{item.institution_name}</CardTitle>
-          {needsReauth && (
-            <Badge variant="destructive" className="gap-1 text-xs">
-              <AlertCircle className="h-3 w-3" />
-              Reconnect required
-            </Badge>
-          )}
-          {hasError && !needsReauth && (
-            <Badge variant="destructive" className="text-xs">
-              Error
-            </Badge>
-          )}
-          {item.status === 'active' && (
-            <Badge variant="secondary" className="text-xs text-slate-500">
-              Connected
-            </Badge>
-          )}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            {editingName ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  value={instName}
+                  onChange={(e) => setInstName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveInstName()
+                    if (e.key === 'Escape') { setInstName(item.institution_name); setEditingName(false) }
+                  }}
+                  className="text-sm font-semibold text-slate-900 bg-white border border-indigo-300 rounded px-2 py-0.5 w-full focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                />
+                <button onClick={saveInstName} disabled={savingName} className="text-green-600 hover:text-green-700 shrink-0">
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => { setInstName(item.institution_name); setEditingName(false) }} className="text-slate-400 hover:text-slate-600 shrink-0">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 group">
+                <CardTitle className="text-base font-semibold truncate">{instName}</CardTitle>
+                <button
+                  onClick={() => setEditingName(true)}
+                  className="text-slate-300 hover:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  aria-label="Rename connection"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {needsReauth && (
+              <Badge variant="destructive" className="gap-1 text-xs">
+                <AlertCircle className="h-3 w-3" />
+                Reconnect
+              </Badge>
+            )}
+            {hasError && !needsReauth && (
+              <Badge variant="destructive" className="text-xs">Error</Badge>
+            )}
+            {item.status === 'active' && (
+              <Badge variant="secondary" className="text-xs text-slate-500">Connected</Badge>
+            )}
+          </div>
         </div>
-        {item.last_synced_at && (
-          <p className="text-xs text-slate-400">
-            Last synced {new Date(item.last_synced_at).toLocaleDateString()}
-          </p>
-        )}
+
+        <div className="flex items-center justify-between mt-0.5">
+          <div className="space-y-0.5">
+            {item.last_synced_at && (
+              <p className="text-xs text-slate-400">
+                Synced {new Date(item.last_synced_at).toLocaleDateString()}
+              </p>
+            )}
+            {txLabel && (
+              <p className={`text-xs ${txCount === 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+                {txLabel}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={disconnect}
+            disabled={disconnecting}
+            className="text-slate-300 hover:text-red-400 transition-colors"
+            title="Disconnect this connection"
+          >
+            <Unlink className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </CardHeader>
+
       <CardContent className="space-y-2">
         {needsReauth && (
           <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-100 px-3 py-2.5 mb-1">

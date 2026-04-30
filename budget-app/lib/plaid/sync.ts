@@ -174,6 +174,22 @@ export async function syncTransactions(itemId: string): Promise<SyncResult> {
     hasMore = data.has_more
   }
 
+  // Refresh live account balances
+  try {
+    const { data: balData } = await plaidClient.accountsGet({ access_token: accessToken })
+    for (const acc of balData.accounts) {
+      const internalId = accountByPlaidId.get(acc.account_id)
+      if (!internalId) continue
+      await supabase.from('accounts').update({
+        current_balance: acc.balances.current ?? null,
+        available_balance: acc.balances.available ?? null,
+        balance_updated_at: new Date().toISOString(),
+      }).eq('id', internalId)
+    }
+  } catch {
+    // Non-critical — balances will retry on next sync
+  }
+
   // Persist cursor and sync time
   await supabase
     .from('plaid_items')

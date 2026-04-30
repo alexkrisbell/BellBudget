@@ -16,6 +16,28 @@ interface ExchangeTokenBody {
   }>
 }
 
+async function fetchAndStoreBalances(
+  admin: ReturnType<typeof createAdminClient>,
+  accessToken: string,
+  householdId: string
+) {
+  try {
+    const { data: balData } = await plaidClient.accountsGet({ access_token: accessToken })
+    for (const acc of balData.accounts) {
+      await admin.from('accounts')
+        .update({
+          current_balance: acc.balances.current ?? null,
+          available_balance: acc.balances.available ?? null,
+          balance_updated_at: new Date().toISOString(),
+        })
+        .eq('plaid_account_id', acc.account_id)
+        .eq('household_id', householdId)
+    }
+  } catch {
+    // Non-critical — balances will refresh on next sync
+  }
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -71,8 +93,6 @@ export async function POST(request: Request) {
         p_access_token: access_token,
       })
 
-      // Refresh the plaid_item row: new item_id, active status, reset cursor so we
-      // re-fetch any transactions missed during a re-auth gap
       await admin
         .from('plaid_items')
         .update({
@@ -80,11 +100,11 @@ export async function POST(request: Request) {
           institution_name,
           status: 'active',
           cursor: null,
+          connected_by_user_id: user.id,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingItem.id)
 
-      // Upsert accounts under the existing plaid_item
       const accountRows = accounts.map((acc) => ({
         household_id: member.household_id,
         plaid_item_id: existingItem.id,
@@ -93,9 +113,6 @@ export async function POST(request: Request) {
         official_name: acc.official_name ?? null,
         type: acc.type,
         subtype: acc.subtype ?? null,
-        current_balance: acc.balances?.current ?? null,
-        available_balance: acc.balances?.available ?? null,
-        balance_updated_at: acc.balances ? new Date().toISOString() : null,
         is_active: true,
       }))
 
@@ -125,6 +142,7 @@ export async function POST(request: Request) {
           institution_id,
           institution_name,
           status: 'active',
+          connected_by_user_id: user.id,
         })
         .select()
         .single()
@@ -142,9 +160,6 @@ export async function POST(request: Request) {
         official_name: acc.official_name ?? null,
         type: acc.type,
         subtype: acc.subtype ?? null,
-        current_balance: acc.balances?.current ?? null,
-        available_balance: acc.balances?.available ?? null,
-        balance_updated_at: acc.balances ? new Date().toISOString() : null,
         is_active: true,
       }))
 
@@ -158,6 +173,9 @@ export async function POST(request: Request) {
 
       plaidItemId = plaidItem.id
     }
+
+    // Fetch real balances immediately (Plaid Link metadata doesn't include them)
+    await fetchAndStoreBalances(admin, access_token, member.household_id)
 
     // Trigger sync (non-blocking)
     syncTransactions(plaidItemId).catch((err) =>

@@ -47,6 +47,7 @@ export interface PlaidItem {
   error_code: string | null
   cursor: string | null
   last_synced_at: string | null
+  connected_by_user_id: string | null
   created_at: string
   updated_at: string
   // access_token_vault_id is a UUID referencing vault.secrets — never sent to client
