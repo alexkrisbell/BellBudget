@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, ArrowLeftRight, PieChart, Landmark, Settings } from 'lucide-react'
@@ -17,7 +18,8 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex w-60 flex-col bg-white border-r border-slate-100 min-h-screen">
-      <div className="h-16 flex items-center px-6 border-b border-slate-100">
+      <div className="h-16 flex items-center gap-2.5 px-5 border-b border-slate-100">
+        <Image src="/Icon-192.png" width={32} height={32} alt="" className="rounded-lg flex-shrink-0" />
         <span className="text-lg font-bold text-slate-900">Bell Bucks</span>
       </div>
       <nav className="flex-1 py-4 px-3 space-y-1">
@@ -29,7 +31,7 @@ export function Sidebar() {
               href={href}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 active
-                  ? 'bg-indigo-50 text-indigo-700'
+                  ? 'bg-emerald-50 text-emerald-700'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >

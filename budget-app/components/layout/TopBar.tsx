@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { Bell, LogOut, User } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { signOut } from '@/lib/auth/actions'
@@ -31,9 +32,12 @@ export function TopBar({ title, userFullName, householdId = null }: TopBarProps)
   return (
     <>
       <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-white border-b border-slate-100 sticky top-0 z-40">
-        <h1 className="text-base font-semibold text-slate-800 md:hidden">
-          {title ?? 'Bell Bucks'}
-        </h1>
+        <div className="flex items-center gap-2 md:hidden">
+          <Image src="/Icon-192.png" width={28} height={28} alt="" className="rounded-md flex-shrink-0" />
+          <h1 className="text-base font-semibold text-slate-900">
+            {title ?? 'Bell Bucks'}
+          </h1>
+        </div>
         <div className="hidden md:block" />
 
         <div className="flex items-center gap-2">
