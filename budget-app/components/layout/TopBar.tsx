@@ -31,10 +31,10 @@ export function TopBar({ title, userFullName, householdId = null }: TopBarProps)
 
   return (
     <>
-      <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-white border-b border-slate-100 sticky top-0 z-40">
+      <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-[#0D321C] md:bg-white border-b border-white/10 md:border-slate-100 sticky top-0 z-40">
         <div className="flex items-center gap-2 md:hidden">
           <Image src="/Icon-192.png" width={28} height={28} alt="" className="rounded-md flex-shrink-0" />
-          <h1 className="text-base font-semibold text-slate-900">
+          <h1 className="text-base font-semibold text-white">
             {title ?? 'Bell Bucks'}
           </h1>
         </div>
@@ -48,9 +48,9 @@ export function TopBar({ title, userFullName, householdId = null }: TopBarProps)
             className="relative"
             onClick={() => setPanelOpen(true)}
           >
-            <Bell className="h-5 w-5 text-slate-600" />
+            <Bell className="h-5 w-5 text-white md:text-slate-600" />
             {notifCount > 0 && (
-              <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center leading-none">
+              <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-[#FBC64F] text-[10px] font-bold text-[#0D321C] flex items-center justify-center leading-none">
                 {notifCount > 9 ? '9+' : notifCount}
               </span>
             )}
@@ -59,7 +59,7 @@ export function TopBar({ title, userFullName, householdId = null }: TopBarProps)
           {/* User menu */}
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon" />}>
-              <User className="h-5 w-5 text-slate-600" />
+              <User className="h-5 w-5 text-white md:text-slate-600" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               {userFullName && (
