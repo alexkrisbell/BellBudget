@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
-      <body className="min-h-full bg-slate-50 antialiased">
+      <body className="min-h-full bg-[#0D321C] antialiased">
         <ServiceWorkerRegistration />
         <Providers>{children}</Providers>
       </body>
