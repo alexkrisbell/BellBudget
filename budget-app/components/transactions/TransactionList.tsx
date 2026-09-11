@@ -54,6 +54,26 @@ export function TransactionList({
     [queryClient, queryKey, categories]
   )
 
+  const handleSplitUpdate = useCallback(
+    (txId: string, updated: Transaction) => {
+      queryClient.setQueriesData(
+        { queryKey },
+        (old: unknown) => {
+          const data = old as { pages?: { transactions: Transaction[] }[] } | undefined
+          if (!data?.pages) return old
+          return {
+            ...data,
+            pages: data.pages.map((page) => ({
+              ...page,
+              transactions: page.transactions.map((tx) => (tx.id === txId ? updated : tx)),
+            })),
+          }
+        }
+      )
+    },
+    [queryClient, queryKey]
+  )
+
   const grouped = useMemo(() => {
     const map = new Map<string, Transaction[]>()
     for (const tx of transactions) {
@@ -112,6 +132,7 @@ export function TransactionList({
                   transaction={tx}
                   categories={categories}
                   onCategoryUpdate={handleCategoryUpdate}
+                  onSplitUpdate={handleSplitUpdate}
                   onExclude={onExclude}
                   onInclude={onInclude}
                 />

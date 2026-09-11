@@ -1,5 +1,7 @@
 import type { createClient } from '@/lib/supabase/server'
 import type { DashboardData } from '@/types'
+import { monthRange } from '@/lib/dateRange'
+import { fetchCategoryActuals } from '@/lib/categoryActuals'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -25,12 +27,14 @@ interface DashboardRawData {
     date: string
     category_id: string | null
     category: unknown
+    splits: unknown
   }> | null
   streak: {
     current_streak: number
     longest_streak: number
   } | null
   notifications: DashboardData['notifications'] | null
+  categoryActuals: Record<string, number>
 }
 
 export async function fetchDashboardRawData({
@@ -40,13 +44,15 @@ export async function fetchDashboardRawData({
   month,
   year,
 }: FetchDashboardRawDataArgs): Promise<DashboardRawData> {
-  const start = `${year}-${String(month).padStart(2, '0')}-01`
-  const endMonth = month === 12 ? 1 : month + 1
-  const endYear = month === 12 ? year + 1 : year
-  const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+  const { start, end } = monthRange(month, year)
 
-  const [{ data: budget }, { data: transactions }, { data: streak }, { data: notifications }] =
-    await Promise.all([
+  const [
+    { data: budget },
+    { data: transactions },
+    { data: streak },
+    { data: notifications },
+    categoryActuals,
+  ] = await Promise.all([
       supabase
         .from('budgets')
         .select(
@@ -60,7 +66,7 @@ export async function fetchDashboardRawData({
       supabase
         .from('transactions')
         .select(
-          'id, merchant_name, description, amount, is_income, date, category_id, category:categories(id,name,color,icon)'
+          'id, merchant_name, description, amount, is_income, date, category_id, category:categories(id,name,color,icon), splits:transaction_splits(id,transaction_id,household_id,category_id,amount,created_at,category:categories(id,name,color,icon))'
         )
         .eq('household_id', householdId)
         .eq('excluded', false)
@@ -81,24 +87,18 @@ export async function fetchDashboardRawData({
         .or(`user_id.is.null,user_id.eq.${userId}`)
         .order('created_at', { ascending: false })
         .limit(3),
+      fetchCategoryActuals({ supabase, householdId, start, end }),
     ])
 
-  return { budget, transactions, streak, notifications }
+  return { budget, transactions, streak, notifications, categoryActuals }
 }
 
 export function computeDashboardData(raw: DashboardRawData): DashboardData {
-  const { budget, transactions, streak, notifications } = raw
+  const { budget, transactions, streak, notifications, categoryActuals: actualByCategory } = raw
 
   const txList = transactions ?? []
   const expenseTxs = txList.filter((tx) => !tx.is_income)
   const incomeTxs = txList.filter((tx) => tx.is_income)
-
-  const actualByCategory: Record<string, number> = {}
-  for (const tx of txList) {
-    if (tx.category_id) {
-      actualByCategory[tx.category_id] = (actualByCategory[tx.category_id] ?? 0) + tx.amount
-    }
-  }
 
   const budgetItems = (budget?.budget_items ?? []) as unknown as Array<{
     category_id: string
@@ -178,6 +178,7 @@ export function computeDashboardData(raw: DashboardRawData): DashboardData {
       is_income: tx.is_income,
       date: tx.date,
       category: tx.category as unknown as { id: string; name: string; color: string; icon: string } | null,
+      splits: tx.splits as unknown as DashboardData['recent_transactions'][number]['splits'],
     })),
   }
 }

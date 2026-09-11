@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from('transactions')
     .select(
-      'id, account_id, household_id, plaid_transaction_id, amount, merchant_name, description, date, authorized_date, category_id, categorization_source, user_id, is_income, pending, excluded, notes, created_at, updated_at, category:categories(id,name,color,icon,is_income), account:accounts(id,name,type,subtype)',
+      'id, account_id, household_id, plaid_transaction_id, amount, merchant_name, description, date, authorized_date, category_id, categorization_source, user_id, is_income, pending, excluded, notes, created_at, updated_at, category:categories(id,name,color,icon,is_income), account:accounts(id,name,type,subtype), splits:transaction_splits(id,transaction_id,household_id,category_id,amount,created_at,category:categories(id,name,color,icon))',
       { count: 'exact' }
     )
     .eq('household_id', member.household_id)

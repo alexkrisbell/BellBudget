@@ -116,6 +116,17 @@ export interface Transaction {
   // Joined
   category?: Category
   account?: Pick<Account, 'id' | 'name' | 'type' | 'subtype'>
+  splits?: TransactionSplit[]
+}
+
+export interface TransactionSplit {
+  id: string
+  transaction_id: string
+  household_id: string
+  category_id: string
+  amount: number
+  created_at: string
+  category?: Category
 }
 
 export interface Budget {
@@ -189,6 +200,7 @@ export interface RecentTransaction {
   is_income: boolean
   date: string
   category?: { id: string; name: string; color: string; icon: string } | null
+  splits?: TransactionSplit[]
 }
 
 export interface IncomeSource {

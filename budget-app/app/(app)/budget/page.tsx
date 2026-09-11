@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { MonthNav } from '@/components/budget/MonthNav'
 import { BudgetEditor } from '@/components/budget/BudgetEditor'
+import { monthRange } from '@/lib/dateRange'
+import { fetchCategoryActuals } from '@/lib/categoryActuals'
 import type { Category } from '@/types'
 
 async function getBudgetData(
@@ -10,10 +12,7 @@ async function getBudgetData(
   month: number,
   year: number
 ) {
-  const start = `${year}-${String(month).padStart(2, '0')}-01`
-  const endMonth = month === 12 ? 1 : month + 1
-  const endYear = month === 12 ? year + 1 : year
-  const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+  const { start, end } = monthRange(month, year)
 
   const [{ data: categories }, { data: budget }] = await Promise.all([
     supabase
@@ -36,29 +35,14 @@ async function getBudgetData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let items: any[] = []
   if (budget) {
-    const [{ data: rawItems }, { data: txActuals }] = await Promise.all([
+    const [{ data: rawItems }, actualByCategory] = await Promise.all([
       supabase
         .from('budget_items')
         .select('*, category:categories(id,name,color,icon,is_income,sort_order)')
         .eq('budget_id', budget.id)
         .order('sort_order'),
-      supabase
-        .from('transactions')
-        .select('category_id, amount')
-        .eq('household_id', householdId)
-        .eq('is_income', false)
-        .eq('excluded', false)
-        .eq('pending', false)
-        .gte('date', start)
-        .lt('date', end),
+      fetchCategoryActuals({ supabase, householdId, start, end }),
     ])
-
-    const actualByCategory: Record<string, number> = {}
-    for (const tx of txActuals ?? []) {
-      if (tx.category_id) {
-        actualByCategory[tx.category_id] = (actualByCategory[tx.category_id] ?? 0) + tx.amount
-      }
-    }
 
     items = (rawItems ?? []).map((item) => {
       const actual = actualByCategory[item.category_id] ?? 0

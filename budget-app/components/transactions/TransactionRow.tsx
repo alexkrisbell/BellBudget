@@ -1,24 +1,41 @@
 'use client'
 
 import { useState } from 'react'
-import { EyeOff, Eye } from 'lucide-react'
+import { EyeOff, Eye, SplitSquareHorizontal, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { CategoryPicker } from './CategoryPicker'
+import { SplitDialog } from './SplitDialog'
 import type { Category, Transaction } from '@/types'
 
 interface Props {
   transaction: Transaction
   categories: Category[]
   onCategoryUpdate: (txId: string, categoryId: string) => void
+  onSplitUpdate?: (txId: string, updated: Transaction) => void
   onExclude?: (txId: string) => void
   onInclude?: (txId: string) => void
 }
 
-export function TransactionRow({ transaction, categories, onCategoryUpdate, onExclude, onInclude }: Props) {
+export function TransactionRow({
+  transaction,
+  categories,
+  onCategoryUpdate,
+  onSplitUpdate,
+  onExclude,
+  onInclude,
+}: Props) {
   const [loading, setLoading] = useState(false)
+  const [splitOpen, setSplitOpen] = useState(false)
   const isIncome = transaction.is_income
   const displayName = transaction.merchant_name ?? transaction.description
   const isExcludedRow = !!onInclude
+
+  const splits = transaction.splits
+  const hasSplits = !!splits && splits.length > 0
+  const splitCentsSum = hasSplits
+    ? splits!.reduce((sum, s) => sum + Math.round(s.amount * 100), 0)
+    : 0
+  const splitIsStale = hasSplits && splitCentsSum !== Math.round(transaction.amount * 100)
 
   async function handleExclude() {
     setLoading(true)
@@ -53,12 +70,23 @@ export function TransactionRow({ transaction, categories, onCategoryUpdate, onEx
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-800 truncate">{displayName}</p>
         <div className="flex items-center gap-2 mt-1">
-          <CategoryPicker
-            transactionId={transaction.id}
-            currentCategory={transaction.category ?? null}
-            categories={categories}
-            onUpdate={onCategoryUpdate}
-          />
+          {hasSplits ? (
+            <button
+              onClick={() => setSplitOpen(true)}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 hover:opacity-80 transition-opacity"
+            >
+              <SplitSquareHorizontal className="h-3 w-3" />
+              Split ({splits!.length})
+              {splitIsStale && <AlertTriangle className="h-3 w-3 text-amber-600" />}
+            </button>
+          ) : (
+            <CategoryPicker
+              transactionId={transaction.id}
+              currentCategory={transaction.category ?? null}
+              categories={categories}
+              onUpdate={onCategoryUpdate}
+            />
+          )}
           {transaction.account && (
             <span className="text-xs text-slate-400">{transaction.account.name}</span>
           )}
@@ -73,6 +101,15 @@ export function TransactionRow({ transaction, categories, onCategoryUpdate, onEx
             <p className="text-xs text-slate-400 mt-0.5">Pending</p>
           )}
         </div>
+        {!isIncome && !isExcludedRow && (
+          <button
+            onClick={() => setSplitOpen(true)}
+            title="Split transaction"
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+          >
+            <SplitSquareHorizontal className="h-3.5 w-3.5" />
+          </button>
+        )}
         {isExcludedRow ? (
           <button
             onClick={handleInclude}
@@ -93,6 +130,15 @@ export function TransactionRow({ transaction, categories, onCategoryUpdate, onEx
           </button>
         )}
       </div>
+      {!isIncome && (
+        <SplitDialog
+          open={splitOpen}
+          onOpenChange={setSplitOpen}
+          transaction={transaction}
+          categories={categories}
+          onSaved={(updated) => onSplitUpdate?.(transaction.id, updated)}
+        />
+      )}
     </div>
   )
 }

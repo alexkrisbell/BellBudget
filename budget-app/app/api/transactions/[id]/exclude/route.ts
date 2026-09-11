@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 export async function PATCH(
   request: Request,
@@ -19,7 +19,10 @@ export async function PATCH(
   const body = await request.json().catch(() => ({}))
   const excluded = Boolean(body.excluded)
 
-  const { error } = await supabase
+  // Use admin client — transactions table has no UPDATE RLS policy (writes are service-role only).
+  // Security is enforced by the household_id check below.
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('transactions')
     .update({ excluded, updated_at: new Date().toISOString() })
     .eq('id', id)

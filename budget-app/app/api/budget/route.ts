@@ -1,12 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-
-function monthRange(month: number, year: number) {
-  const start = `${year}-${String(month).padStart(2, '0')}-01`
-  const endMonth = month === 12 ? 1 : month + 1
-  const endYear = month === 12 ? year + 1 : year
-  const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
-  return { start, end }
-}
+import { monthRange } from '@/lib/dateRange'
+import { fetchCategoryActuals } from '@/lib/categoryActuals'
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -38,29 +32,14 @@ export async function GET(request: Request) {
 
   const { start, end } = monthRange(month, year)
 
-  const [{ data: rawItems }, { data: txActuals }] = await Promise.all([
+  const [{ data: rawItems }, actualByCategory] = await Promise.all([
     supabase
       .from('budget_items')
       .select('*, category:categories(id,name,color,icon,is_income,sort_order)')
       .eq('budget_id', budget.id)
       .order('sort_order'),
-    supabase
-      .from('transactions')
-      .select('category_id, amount')
-      .eq('household_id', member.household_id)
-      .eq('is_income', false)
-      .eq('excluded', false)
-      .eq('pending', false)
-      .gte('date', start)
-      .lt('date', end),
+    fetchCategoryActuals({ supabase, householdId: member.household_id, start, end }),
   ])
-
-  const actualByCategory: Record<string, number> = {}
-  for (const tx of txActuals ?? []) {
-    if (tx.category_id) {
-      actualByCategory[tx.category_id] = (actualByCategory[tx.category_id] ?? 0) + tx.amount
-    }
-  }
 
   const items = (rawItems ?? []).map((item) => {
     const actual = actualByCategory[item.category_id] ?? 0

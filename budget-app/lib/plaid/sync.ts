@@ -2,6 +2,8 @@ import { plaidClient } from './client'
 import { createAdminClient } from '@/lib/supabase/server'
 import { categorizeBatch } from '@/lib/categorization/engine'
 import { createNotification } from '@/lib/notifications/create'
+import { monthRange } from '@/lib/dateRange'
+import { fetchCategoryActuals } from '@/lib/categoryActuals'
 import type { RemovedTransaction, Transaction as PlaidTransaction } from 'plaid'
 
 // Internal account transfers (e.g. paying a credit card bill from checking, moving money
@@ -306,29 +308,11 @@ async function triggerNotifications(
   if (budgetItems.length === 0) return
 
   // Fetch all current month actuals per category
-  const start = `${year}-${String(month).padStart(2, '0')}-01`
-  const endMonth = month === 12 ? 1 : month + 1
-  const endYear = month === 12 ? year + 1 : year
-  const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
-
-  const { data: txData } = await supabase
-    .from('transactions')
-    .select('category_id, amount')
-    .eq('household_id', householdId)
-    .eq('excluded', false)
-    .eq('pending', false)
-    .gte('date', start)
-    .lt('date', end)
-
-  const actualByCategory: Record<string, number> = {}
-  for (const tx of txData ?? []) {
-    if (tx.category_id) {
-      actualByCategory[tx.category_id] = (actualByCategory[tx.category_id] ?? 0) + tx.amount
-    }
-  }
+  const { start, end } = monthRange(month, year)
+  const actualByCategory = await fetchCategoryActuals({ supabase, householdId, start, end })
 
   // Fetch already-sent notifications this month to avoid duplicates
-  const notifStart = `${year}-${String(month).padStart(2, '0')}-01`
+  const notifStart = start
   const { data: existingNotifs } = await supabase
     .from('notifications')
     .select('type, metadata')
