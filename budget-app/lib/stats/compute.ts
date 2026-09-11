@@ -14,7 +14,12 @@ interface FetchStatsRawDataArgs {
 }
 
 interface StatsRawData {
-  transactions: Array<{ date: string; amount: number; is_income: boolean }>
+  transactions: Array<{
+    date: string
+    amount: number
+    is_income: boolean
+    category: { is_income: boolean } | { is_income: boolean }[] | null
+  }>
 }
 
 export async function fetchStatsRawData({
@@ -28,7 +33,7 @@ export async function fetchStatsRawData({
 
   const { data } = await supabase
     .from('transactions')
-    .select('date, amount, is_income')
+    .select('date, amount, is_income, category:categories(is_income)')
     .eq('household_id', householdId)
     .eq('excluded', false)
     .eq('pending', false)
@@ -36,6 +41,16 @@ export async function fetchStatsRawData({
     .lt('date', end)
 
   return { transactions: data ?? [] }
+}
+
+// A category the user has (re)assigned is the more authoritative signal —
+// manually recategorizing a transaction never updates its own is_income flag
+// (see app/api/transactions/[id]/category/route.ts), so trust the category's
+// is_income when one is set and only fall back to the transaction's own flag
+// for uncategorized rows.
+function resolveIsIncome(tx: StatsRawData['transactions'][number]): boolean {
+  const category = Array.isArray(tx.category) ? tx.category[0] : tx.category
+  return category ? category.is_income : tx.is_income
 }
 
 export interface MonthStat {
@@ -61,7 +76,7 @@ export function computeStatsData(raw: StatsRawData, monthsBack: number): StatsDa
     const key = `${yearStr}-${monthStr}`
     if (!buckets.has(key)) buckets.set(key, { income: 0, spent: 0 })
     const bucket = buckets.get(key)!
-    if (tx.is_income) {
+    if (resolveIsIncome(tx)) {
       bucket.income += Math.abs(tx.amount)
     } else {
       bucket.spent += tx.amount

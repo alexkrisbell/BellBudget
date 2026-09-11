@@ -5,6 +5,14 @@ import { fetchCategoryActuals } from '@/lib/categoryActuals'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
+interface TxCategory {
+  id: string
+  name: string
+  color: string
+  icon: string
+  is_income: boolean
+}
+
 interface FetchDashboardRawDataArgs {
   supabase: SupabaseServerClient
   householdId: string
@@ -26,7 +34,7 @@ interface DashboardRawData {
     is_income: boolean
     date: string
     category_id: string | null
-    category: unknown
+    category: TxCategory | TxCategory[] | null
     splits: unknown
   }> | null
   streak: {
@@ -66,7 +74,7 @@ export async function fetchDashboardRawData({
       supabase
         .from('transactions')
         .select(
-          'id, merchant_name, description, amount, is_income, date, category_id, category:categories(id,name,color,icon), splits:transaction_splits(id,transaction_id,household_id,category_id,amount,created_at,category:categories(id,name,color,icon))'
+          'id, merchant_name, description, amount, is_income, date, category_id, category:categories(id,name,color,icon,is_income), splits:transaction_splits(id,transaction_id,household_id,category_id,amount,created_at,category:categories(id,name,color,icon))'
         )
         .eq('household_id', householdId)
         .eq('excluded', false)
@@ -93,12 +101,26 @@ export async function fetchDashboardRawData({
   return { budget, transactions, streak, notifications, categoryActuals }
 }
 
+// A category the user has (re)assigned is the more authoritative signal —
+// manually recategorizing a transaction never updates its own is_income flag
+// (see app/api/transactions/[id]/category/route.ts), so trust the category's
+// is_income when one is set and only fall back to the transaction's own flag
+// for uncategorized rows.
+function normalizeCategory(category: TxCategory | TxCategory[] | null): TxCategory | null {
+  return Array.isArray(category) ? (category[0] ?? null) : category
+}
+
+function resolveIsIncome(tx: { is_income: boolean; category: TxCategory | TxCategory[] | null }): boolean {
+  const category = normalizeCategory(tx.category)
+  return category ? category.is_income : tx.is_income
+}
+
 export function computeDashboardData(raw: DashboardRawData): DashboardData {
   const { budget, transactions, streak, notifications, categoryActuals: actualByCategory } = raw
 
   const txList = transactions ?? []
-  const expenseTxs = txList.filter((tx) => !tx.is_income)
-  const incomeTxs = txList.filter((tx) => tx.is_income)
+  const expenseTxs = txList.filter((tx) => !resolveIsIncome(tx))
+  const incomeTxs = txList.filter((tx) => resolveIsIncome(tx))
 
   const budgetItems = (budget?.budget_items ?? []) as unknown as Array<{
     category_id: string
@@ -175,9 +197,9 @@ export function computeDashboardData(raw: DashboardRawData): DashboardData {
       merchant_name: tx.merchant_name,
       description: tx.description,
       amount: tx.amount,
-      is_income: tx.is_income,
+      is_income: resolveIsIncome(tx),
       date: tx.date,
-      category: tx.category as unknown as { id: string; name: string; color: string; icon: string } | null,
+      category: normalizeCategory(tx.category),
       splits: tx.splits as unknown as DashboardData['recent_transactions'][number]['splits'],
     })),
   }

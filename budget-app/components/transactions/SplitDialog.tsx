@@ -16,7 +16,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils'
 import type { Category, Transaction } from '@/types'
@@ -119,14 +118,18 @@ function SplitForm({
       </DialogHeader>
 
       <div className="space-y-2">
-        {rows.map((row) => (
+        {rows.map((row) => {
+          const selectedCategory = categories.find((c) => c.id === row.category_id)
+          return (
           <div key={row.key} className="flex items-center gap-2">
             <Select
               value={row.category_id || null}
               onValueChange={(val: string | null) => updateRow(row.key, { category_id: val ?? '' })}
             >
               <SelectTrigger className="flex-1 h-8 text-sm">
-                <SelectValue placeholder="Category" />
+                <span className="truncate">
+                  {selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : 'Category'}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat) => (
@@ -155,7 +158,8 @@ function SplitForm({
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
-        ))}
+          )
+        })}
 
         <button
           type="button"
