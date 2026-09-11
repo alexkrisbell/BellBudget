@@ -6,6 +6,7 @@ type NotificationType =
   | 'paycheck'
   | 'streak_update'
   | 'item_error'
+  | 'sync_failed'
 
 interface CreateNotificationOptions {
   householdId: string

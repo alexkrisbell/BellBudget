@@ -48,8 +48,9 @@ export async function batchCategorize(
           }
         }
       }
-    } catch {
-      // Silently fail — transactions fall back to "Other"
+    } catch (err) {
+      // Non-fatal — transactions fall back to "Other"
+      console.error('[batchCategorize] OpenAI categorization failed:', err)
     }
   }
 

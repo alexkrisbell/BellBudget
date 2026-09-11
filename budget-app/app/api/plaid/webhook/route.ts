@@ -1,21 +1,19 @@
 import { createAdminClient } from '@/lib/supabase/server'
-import { plaidClient } from '@/lib/plaid/client'
 import { syncTransactions } from '@/lib/plaid/sync'
+import { verifyPlaidWebhook } from '@/lib/plaid/webhookVerification'
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const { webhook_type, webhook_code, item_id } = body
+  const rawBody = await request.text()
 
-  // Verify webhook authenticity using Plaid's key verification
-  const webhookVerificationKey = request.headers.get('plaid-verification')
-  if (!webhookVerificationKey) {
-    return Response.json({ error: 'Missing webhook verification.' }, { status: 401 })
-  }
   try {
-    await plaidClient.webhookVerificationKeyGet({ key_id: webhookVerificationKey })
-  } catch {
+    await verifyPlaidWebhook(rawBody, request.headers.get('plaid-verification'))
+  } catch (err) {
+    console.error('Plaid webhook verification failed:', err)
     return Response.json({ error: 'Invalid webhook signature.' }, { status: 401 })
   }
+
+  const body = JSON.parse(rawBody)
+  const { webhook_type, webhook_code, item_id } = body
 
   const admin = createAdminClient()
 

@@ -14,6 +14,7 @@ const TYPE_LABELS: Record<Notification['type'], string> = {
   paycheck: '💰 Paycheck',
   streak_update: '🔥 Streak',
   item_error: '🔗 Bank Issue',
+  sync_failed: '🔄 Sync Issue',
 }
 
 interface Props {

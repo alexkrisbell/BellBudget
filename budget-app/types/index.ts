@@ -161,6 +161,7 @@ export interface Notification {
     | 'paycheck'
     | 'streak_update'
     | 'item_error'
+    | 'sync_failed'
   title: string
   body: string
   metadata: Record<string, unknown> | null

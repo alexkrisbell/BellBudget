@@ -53,6 +53,15 @@ export interface SyncResult {
 }
 
 export async function syncTransactions(itemId: string): Promise<SyncResult> {
+  try {
+    return await runSync(itemId)
+  } catch (err) {
+    await notifySyncFailure(itemId, err)
+    throw err
+  }
+}
+
+async function runSync(itemId: string): Promise<SyncResult> {
   const supabase = createAdminClient()
 
   // Fetch the plaid_item row (includes vault id + cursor)
@@ -186,8 +195,9 @@ export async function syncTransactions(itemId: string): Promise<SyncResult> {
         balance_updated_at: new Date().toISOString(),
       }).eq('id', internalId)
     }
-  } catch {
+  } catch (err) {
     // Non-critical — balances will retry on next sync
+    console.error(`[syncTransactions] balance refresh failed for item ${itemId}:`, err)
   }
 
   // Persist cursor and sync time
@@ -201,6 +211,46 @@ export async function syncTransactions(itemId: string): Promise<SyncResult> {
     .eq('id', itemId)
 
   return result
+}
+
+// ─── Sync failure notification ────────────────────────────────────────────────
+
+const SYNC_FAILURE_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000 // once per item per rolling 24h
+
+async function notifySyncFailure(itemId: string, error: unknown) {
+  console.error(`[syncTransactions] failed for item ${itemId}:`, error)
+
+  const admin = createAdminClient()
+  const { data: item } = await admin
+    .from('plaid_items')
+    .select('household_id, institution_name, status')
+    .eq('id', itemId)
+    .single()
+  if (!item) return
+
+  // Don't duplicate the reconnect-required flow — that's already covered by
+  // the ITEM.ERROR webhook handler's item_error notification.
+  if (item.status !== 'active') return
+
+  const since = new Date(Date.now() - SYNC_FAILURE_DEDUPE_WINDOW_MS).toISOString()
+  const { data: recent } = await admin
+    .from('notifications')
+    .select('metadata')
+    .eq('household_id', item.household_id)
+    .eq('type', 'sync_failed')
+    .gte('created_at', since)
+  const alreadyNotified = (recent ?? []).some(
+    (n) => (n.metadata as Record<string, unknown> | null)?.plaid_item_id === itemId
+  )
+  if (alreadyNotified) return
+
+  await createNotification({
+    householdId: item.household_id,
+    type: 'sync_failed',
+    title: `${item.institution_name} sync failed`,
+    body: `We couldn't sync transactions for ${item.institution_name}. We'll keep retrying automatically — no action needed unless this keeps happening.`,
+    metadata: { plaid_item_id: itemId, error: error instanceof Error ? error.message : String(error) },
+  })
 }
 
 // ─── Notification triggers ───────────────────────────────────────────────────
