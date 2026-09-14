@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { plaidClient } from '@/lib/plaid/client'
 import { syncTransactions } from '@/lib/plaid/sync'
+import { assertCanConnectNewAccount, ConnectionLimitError } from '@/lib/plaid/limits'
 
 interface ExchangeTokenBody {
   public_token: string
@@ -65,13 +66,18 @@ export async function POST(request: Request) {
   }
 
   try {
+    const admin = createAdminClient()
+
+    // Connecting via this endpoint always means a fresh institution connection
+    // (reconnecting an existing, expired item goes through the separate
+    // update-mode flow in create-link-token instead), so it's safe to gate here.
+    await assertCanConnectNewAccount(admin, member.household_id)
+
     // Exchange public token for access token
     const exchangeResponse = await plaidClient.itemPublicTokenExchange({
       public_token,
     })
     const { access_token, item_id } = exchangeResponse.data
-
-    const admin = createAdminClient()
 
     // Check if this exact Plaid item is already stored (e.g. duplicate click).
     // Dedup on plaid_item_id (not institution_id) so that two household members
@@ -184,6 +190,9 @@ export async function POST(request: Request) {
 
     return Response.json({ plaid_item_id: plaidItemId }, { status: existingItem ? 200 : 201 })
   } catch (err) {
+    if (err instanceof ConnectionLimitError) {
+      return Response.json({ error: err.message }, { status: 429 })
+    }
     console.error('Exchange token error:', err)
     return Response.json({ error: 'Failed to connect account.' }, { status: 500 })
   }

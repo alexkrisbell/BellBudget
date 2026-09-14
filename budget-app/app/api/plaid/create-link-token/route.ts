@@ -1,11 +1,19 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { plaidClient } from '@/lib/plaid/client'
+import { assertCanConnectNewAccount, ConnectionLimitError } from '@/lib/plaid/limits'
 import { CountryCode, Products } from 'plaid'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: member } = await supabase
+    .from('household_members')
+    .select('household_id')
+    .eq('user_id', user.id)
+    .single()
+  if (!member) return Response.json({ error: 'No household.' }, { status: 400 })
 
   try {
     // Check if this is a re-auth request for an existing item
@@ -19,6 +27,7 @@ export async function POST(request: Request) {
         .from('plaid_items')
         .select('access_token_vault_id, household_id')
         .eq('id', body.item_id)
+        .eq('household_id', member.household_id)
         .single()
       if (!item) return Response.json({ error: 'Item not found.' }, { status: 404 })
 
@@ -40,6 +49,7 @@ export async function POST(request: Request) {
     }
 
     // New connection
+    await assertCanConnectNewAccount(createAdminClient(), member.household_id)
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
     const redirectUri = appUrl ? `${appUrl}/plaid-oauth` : undefined
     console.log('[create-link-token] env:', process.env.PLAID_ENV, 'redirect_uri:', redirectUri)
@@ -54,6 +64,9 @@ export async function POST(request: Request) {
     })
     return Response.json({ link_token: response.data.link_token })
   } catch (err: unknown) {
+    if (err instanceof ConnectionLimitError) {
+      return Response.json({ error: err.message }, { status: 429 })
+    }
     const plaidMsg =
       (err as { response?: { data?: { error_message?: string } } })?.response?.data?.error_message
     const message = plaidMsg ?? (err instanceof Error ? err.message : 'Failed to create link token.')
