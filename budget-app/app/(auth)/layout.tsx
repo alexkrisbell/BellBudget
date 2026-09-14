@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -7,6 +9,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <p className="text-sm text-slate-500 mt-1">Track your household finances</p>
         </div>
         {children}
+        <p className="text-xs text-slate-400 text-center mt-6">
+          <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
+        </p>
       </div>
     </div>
   )
