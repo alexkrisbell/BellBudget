@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import { plaidClient } from './client'
 import { createAdminClient } from '@/lib/supabase/server'
 import { categorizeBatch } from '@/lib/categorization/engine'
@@ -221,6 +222,7 @@ const SYNC_FAILURE_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000 // once per item per r
 
 async function notifySyncFailure(itemId: string, error: unknown) {
   console.error(`[syncTransactions] failed for item ${itemId}:`, error)
+  Sentry.captureException(error, { extra: { plaid_item_id: itemId } })
 
   const admin = createAdminClient()
   const { data: item } = await admin

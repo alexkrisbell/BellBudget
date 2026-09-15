@@ -1,6 +1,13 @@
 'use client'
 
-export default function StatsError({ reset }: { error: Error; reset: () => void }) {
+import * as Sentry from '@sentry/nextjs'
+import { useEffect } from 'react'
+
+export default function StatsError({ error, reset }: { error: Error; reset: () => void }) {
+  useEffect(() => {
+    Sentry.captureException(error)
+  }, [error])
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4 text-center">
       <p className="text-slate-700 font-semibold">Failed to load stats</p>
