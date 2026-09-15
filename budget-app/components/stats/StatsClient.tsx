@@ -6,6 +6,8 @@ import {
   BarChart,
   Bar,
   Cell,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -13,17 +15,25 @@ import {
 } from 'recharts'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useStats } from '@/hooks/useStats'
+import { useNetWorth } from '@/hooks/useNetWorth'
 import { useAppStore } from '@/store/appStore'
 import type { StatsData } from '@/lib/stats/compute'
+import type { NetWorthData } from '@/lib/netWorth/compute'
 
 const WINDOW_OPTIONS = [3, 6, 12] as const
 
 interface Props {
   initialData: StatsData
+  initialNetWorth: NetWorthData
   initialMonths: number
 }
 
-export function StatsClient({ initialData, initialMonths }: Props) {
+function formatShortDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+export function StatsClient({ initialData, initialNetWorth, initialMonths }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -33,6 +43,10 @@ export function StatsClient({ initialData, initialMonths }: Props) {
   const { data } = useStats(
     { months },
     months === initialMonths ? initialData : undefined
+  )
+  const { data: netWorth } = useNetWorth(
+    { months },
+    months === initialMonths ? initialNetWorth : undefined
   )
 
   function setMonths(m: number) {
@@ -50,6 +64,7 @@ export function StatsClient({ initialData, initialMonths }: Props) {
 
   const currentMonth = data.months.at(-1)
   const chartMonths = data.months.map((m) => ({ ...m }))
+  const netWorthPoints = (netWorth?.points ?? []).map((p) => ({ ...p, label: formatShortDate(p.date) }))
 
   return (
     <div className="space-y-6">
@@ -70,7 +85,21 @@ export function StatsClient({ initialData, initialMonths }: Props) {
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-slate-100 bg-white p-4">
+          <p className="text-xs text-slate-400 mb-0.5">Net worth</p>
+          <p className="text-xl font-semibold text-slate-800">
+            {netWorth?.current !== null && netWorth?.current !== undefined
+              ? formatCurrency(netWorth.current)
+              : '—'}
+          </p>
+          {netWorth?.changeAmount !== null && netWorth?.changeAmount !== undefined && (
+            <p className={cn('text-xs mt-0.5', netWorth.changeAmount >= 0 ? 'text-green-600' : 'text-red-600')}>
+              {netWorth.changeAmount >= 0 ? '+' : ''}
+              {formatCurrency(netWorth.changeAmount)}
+            </p>
+          )}
+        </div>
         <div className="rounded-xl border border-slate-100 bg-white p-4">
           <p className="text-xs text-slate-400 mb-0.5">This month saved</p>
           <p
@@ -94,6 +123,47 @@ export function StatsClient({ initialData, initialMonths }: Props) {
             {data.avgSavingsRate !== null ? `${Math.round(data.avgSavingsRate * 100)}%` : '—'}
           </p>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-100 bg-white p-5">
+        <p className="text-sm font-medium text-slate-600 mb-1">Net worth over time</p>
+        {netWorthPoints.length >= 2 ? (
+          <>
+            <p className="text-xs text-slate-400 mb-4">Assets minus credit card and loan balances.</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={netWorthPoints} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={64}
+                  tickFormatter={(v: number) => formatCurrency(v)}
+                />
+                <Tooltip
+                  formatter={(value) => formatCurrency(Number(value))}
+                  contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="netWorth"
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: '#6366f1' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </>
+        ) : (
+          <p className="text-sm text-slate-400 py-10 text-center">
+            Net worth history builds up day by day from when tracking started — check back soon.
+          </p>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-100 bg-white p-5">

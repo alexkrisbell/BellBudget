@@ -5,6 +5,7 @@ import { categorizeBatch } from '@/lib/categorization/engine'
 import { createNotification } from '@/lib/notifications/create'
 import { monthRange } from '@/lib/dateRange'
 import { fetchCategoryActuals } from '@/lib/categoryActuals'
+import { updateAccountBalances } from '@/lib/plaid/balances'
 import type { RemovedTransaction, Transaction as PlaidTransaction } from 'plaid'
 
 // Internal account transfers (e.g. paying a credit card bill from checking, moving money
@@ -186,18 +187,9 @@ async function runSync(itemId: string): Promise<SyncResult> {
     hasMore = data.has_more
   }
 
-  // Refresh live account balances
+  // Refresh live account balances (and record today's snapshot for net worth)
   try {
-    const { data: balData } = await plaidClient.accountsGet({ access_token: accessToken })
-    for (const acc of balData.accounts) {
-      const internalId = accountByPlaidId.get(acc.account_id)
-      if (!internalId) continue
-      await supabase.from('accounts').update({
-        current_balance: acc.balances.current ?? null,
-        available_balance: acc.balances.available ?? null,
-        balance_updated_at: new Date().toISOString(),
-      }).eq('id', internalId)
-    }
+    await updateAccountBalances(supabase, item.household_id, accessToken)
   } catch (err) {
     // Non-critical — balances will retry on next sync
     console.error(`[syncTransactions] balance refresh failed for item ${itemId}:`, err)

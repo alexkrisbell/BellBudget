@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { plaidClient } from '@/lib/plaid/client'
 import { syncTransactions } from '@/lib/plaid/sync'
 import { assertCanConnectNewAccount, ConnectionLimitError } from '@/lib/plaid/limits'
+import { updateAccountBalances } from '@/lib/plaid/balances'
 
 interface ExchangeTokenBody {
   public_token: string
@@ -15,28 +16,6 @@ interface ExchangeTokenBody {
     subtype?: string | null
     balances?: { current?: number | null; available?: number | null }
   }>
-}
-
-async function fetchAndStoreBalances(
-  admin: ReturnType<typeof createAdminClient>,
-  accessToken: string,
-  householdId: string
-) {
-  try {
-    const { data: balData } = await plaidClient.accountsGet({ access_token: accessToken })
-    for (const acc of balData.accounts) {
-      await admin.from('accounts')
-        .update({
-          current_balance: acc.balances.current ?? null,
-          available_balance: acc.balances.available ?? null,
-          balance_updated_at: new Date().toISOString(),
-        })
-        .eq('plaid_account_id', acc.account_id)
-        .eq('household_id', householdId)
-    }
-  } catch {
-    // Non-critical — balances will refresh on next sync
-  }
 }
 
 export async function POST(request: Request) {
@@ -181,7 +160,12 @@ export async function POST(request: Request) {
     }
 
     // Fetch real balances immediately (Plaid Link metadata doesn't include them)
-    await fetchAndStoreBalances(admin, access_token, member.household_id)
+    try {
+      await updateAccountBalances(admin, member.household_id, access_token)
+    } catch (err) {
+      // Non-critical — balances will refresh on next sync
+      console.error('Initial balance fetch failed:', err)
+    }
 
     // Trigger sync (non-blocking)
     syncTransactions(plaidItemId).catch((err) =>

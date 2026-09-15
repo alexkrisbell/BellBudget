@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { fetchStatsRawData, computeStatsData } from '@/lib/stats/compute'
+import { fetchNetWorthRawData, computeNetWorthData } from '@/lib/netWorth/compute'
 import { StatsClient } from '@/components/stats/StatsClient'
 
 const ALLOWED_MONTHS = [3, 6, 12]
@@ -26,8 +27,12 @@ export default async function StatsPage({
   const monthsParam = parseInt(Array.isArray(monthsRaw) ? monthsRaw[0] : monthsRaw ?? '6', 10)
   const months = ALLOWED_MONTHS.includes(monthsParam) ? monthsParam : 6
 
-  const raw = await fetchStatsRawData({ supabase, householdId: member.household_id, monthsBack: months })
-  const initialData = computeStatsData(raw, months)
+  const [statsRaw, netWorthRaw] = await Promise.all([
+    fetchStatsRawData({ supabase, householdId: member.household_id, monthsBack: months }),
+    fetchNetWorthRawData({ supabase, householdId: member.household_id, monthsBack: months }),
+  ])
+  const initialData = computeStatsData(statsRaw, months)
+  const initialNetWorth = computeNetWorthData(netWorthRaw)
 
   return (
     <div className="space-y-6">
@@ -36,7 +41,11 @@ export default async function StatsPage({
         <p className="text-sm text-slate-500 mt-0.5">Track how much you&apos;re saving over time.</p>
       </div>
       <Suspense>
-        <StatsClient initialData={initialData} initialMonths={months} />
+        <StatsClient
+          initialData={initialData}
+          initialNetWorth={initialNetWorth}
+          initialMonths={months}
+        />
       </Suspense>
     </div>
   )
