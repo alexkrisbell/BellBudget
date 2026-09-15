@@ -13,7 +13,7 @@ import {
   Tooltip,
   ReferenceLine,
 } from 'recharts'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, formatShortDate } from '@/lib/utils'
 import { useStats } from '@/hooks/useStats'
 import { useNetWorth } from '@/hooks/useNetWorth'
 import { useAppStore } from '@/store/appStore'
@@ -26,11 +26,6 @@ interface Props {
   initialData: StatsData
   initialNetWorth: NetWorthData
   initialMonths: number
-}
-
-function formatShortDate(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 export function StatsClient({ initialData, initialNetWorth, initialMonths }: Props) {
