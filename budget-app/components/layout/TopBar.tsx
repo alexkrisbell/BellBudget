@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Bell, LogOut, User } from 'lucide-react'
+import Link from 'next/link'
+import { Bell, LogOut, Settings, User } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { signOut } from '@/lib/auth/actions'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -70,6 +71,11 @@ export function TopBar({ title, userFullName, householdId = null }: TopBarProps)
                   <DropdownMenuSeparator />
                 </>
               )}
+              <DropdownMenuItem className="cursor-pointer" render={<Link href="/settings" />}>
+                <Settings className="h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" className="cursor-pointer">
                 <form action={signOut} className="flex items-center gap-2 w-full">
                   <LogOut className="h-4 w-4" />

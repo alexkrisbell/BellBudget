@@ -2,15 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ArrowLeftRight, PieChart, Landmark, TrendingUp, Settings } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, PieChart, Landmark, TrendingUp } from 'lucide-react'
 
+// Settings lives in the account dropdown in TopBar instead of here — six
+// tabs was too cramped on narrow phones (labels started overlapping).
 const NAV_ITEMS = [
   { href: '/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
   { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { href: '/budget',       label: 'Budget',       icon: PieChart },
   { href: '/stats',        label: 'Stats',        icon: TrendingUp },
   { href: '/accounts',     label: 'Accounts',     icon: Landmark },
-  { href: '/settings',     label: 'Settings',     icon: Settings },
 ]
 
 export function BottomNav() {
