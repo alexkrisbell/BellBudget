@@ -21,7 +21,7 @@ interface FetchDashboardRawDataArgs {
   year: number
 }
 
-interface DashboardRawData {
+export interface DashboardRawData {
   budget: {
     total_income_expected: number | null
     budget_items: unknown

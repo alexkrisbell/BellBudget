@@ -1,9 +1,5 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-
-interface SplitInput {
-  category_id: string
-  amount: number
-}
+import { validateSplits, type SplitInput } from '@/lib/transactionSplits'
 
 export async function POST(
   request: Request,
@@ -35,37 +31,20 @@ export async function POST(
   if (!transaction) return Response.json({ error: 'Transaction not found.' }, { status: 404 })
 
   if (splits.length > 0) {
-    if (transaction.is_income) {
-      return Response.json({ error: 'Income transactions cannot be split.' }, { status: 400 })
-    }
-    if (splits.length < 2) {
-      return Response.json({ error: 'A split needs at least 2 categories.' }, { status: 400 })
-    }
-    if (splits.some((s) => !s.category_id || !(Number(s.amount) > 0))) {
-      return Response.json({ error: 'Each split needs a category and a positive amount.' }, { status: 400 })
-    }
-
     const categoryIds = splits.map((s) => s.category_id)
     const { data: categories } = await admin
       .from('categories')
       .select('id, household_id')
       .in('id', categoryIds)
-    const validIds = new Set(
+    const validCategoryIds = new Set(
       (categories ?? [])
         .filter((c) => c.household_id === null || c.household_id === member.household_id)
         .map((c) => c.id)
     )
-    if (categoryIds.some((cid) => !validIds.has(cid))) {
-      return Response.json({ error: 'Invalid category.' }, { status: 400 })
-    }
 
-    const splitCents = splits.reduce((sum, s) => sum + Math.round(Number(s.amount) * 100), 0)
-    const transactionCents = Math.round(transaction.amount * 100)
-    if (splitCents !== transactionCents) {
-      return Response.json(
-        { error: 'Split amounts must add up to the transaction total.' },
-        { status: 400 }
-      )
+    const result = validateSplits(splits, transaction.amount, transaction.is_income, validCategoryIds)
+    if (!result.valid) {
+      return Response.json({ error: result.error }, { status: 400 })
     }
   }
 

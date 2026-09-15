@@ -13,7 +13,7 @@ interface FetchStatsRawDataArgs {
   monthsBack: number
 }
 
-interface StatsRawData {
+export interface StatsRawData {
   transactions: Array<{
     date: string
     amount: number
