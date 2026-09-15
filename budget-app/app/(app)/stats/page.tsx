@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { fetchStatsRawData, computeStatsData } from '@/lib/stats/compute'
 import { fetchNetWorthRawData, computeNetWorthData } from '@/lib/netWorth/compute'
+import { fetchRecurringBillsRawData, detectRecurringBills } from '@/lib/recurringBills/detect'
 import { StatsClient } from '@/components/stats/StatsClient'
+import { RecurringBillsCard } from '@/components/shared/RecurringBillsCard'
 
 const ALLOWED_MONTHS = [3, 6, 12]
 
@@ -27,12 +29,14 @@ export default async function StatsPage({
   const monthsParam = parseInt(Array.isArray(monthsRaw) ? monthsRaw[0] : monthsRaw ?? '6', 10)
   const months = ALLOWED_MONTHS.includes(monthsParam) ? monthsParam : 6
 
-  const [statsRaw, netWorthRaw] = await Promise.all([
+  const [statsRaw, netWorthRaw, recurringBillsRaw] = await Promise.all([
     fetchStatsRawData({ supabase, householdId: member.household_id, monthsBack: months }),
     fetchNetWorthRawData({ supabase, householdId: member.household_id, monthsBack: months }),
+    fetchRecurringBillsRawData({ supabase, householdId: member.household_id }),
   ])
   const initialData = computeStatsData(statsRaw, months)
   const initialNetWorth = computeNetWorthData(netWorthRaw)
+  const recurringBills = detectRecurringBills(recurringBillsRaw)
 
   return (
     <div className="space-y-6">
@@ -47,6 +51,7 @@ export default async function StatsPage({
           initialMonths={months}
         />
       </Suspense>
+      <RecurringBillsCard bills={recurringBills} />
     </div>
   )
 }

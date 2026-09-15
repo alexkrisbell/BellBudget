@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DashboardClient } from '@/components/dashboard/DashboardClient'
 import { fetchDashboardRawData, computeDashboardData } from '@/lib/dashboard/compute'
-import { fetchRecurringBillsRawData, detectRecurringBills } from '@/lib/recurringBills/detect'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -20,18 +19,14 @@ export default async function DashboardPage() {
   const month = now.getMonth() + 1
   const year = now.getFullYear()
 
-  const [raw, recurringBillsRaw] = await Promise.all([
-    fetchDashboardRawData({
-      supabase,
-      householdId: member.household_id,
-      userId: user.id,
-      month,
-      year,
-    }),
-    fetchRecurringBillsRawData({ supabase, householdId: member.household_id }),
-  ])
+  const raw = await fetchDashboardRawData({
+    supabase,
+    householdId: member.household_id,
+    userId: user.id,
+    month,
+    year,
+  })
   const initialData = computeDashboardData(raw)
-  const recurringBills = detectRecurringBills(recurringBillsRaw)
 
   return (
     <div className="space-y-2">
@@ -39,12 +34,7 @@ export default async function DashboardPage() {
         <h2 className="text-xl font-semibold text-slate-800">Dashboard</h2>
         <p className="text-sm text-slate-500 mt-0.5">Your financial snapshot.</p>
       </div>
-      <DashboardClient
-        initialData={initialData}
-        initialMonth={month}
-        initialYear={year}
-        recurringBills={recurringBills}
-      />
+      <DashboardClient initialData={initialData} initialMonth={month} initialYear={year} />
     </div>
   )
 }

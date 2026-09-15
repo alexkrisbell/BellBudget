@@ -7,20 +7,16 @@ import { StreakBadge } from './StreakBadge'
 import { BudgetOverviewCard } from './BudgetOverviewCard'
 import { CategoryGrid } from './CategoryGrid'
 import { IncomeStrip } from './IncomeStrip'
-import { RecentTransactions } from './RecentTransactions'
-import { RecurringBillsCard } from './RecurringBillsCard'
 import { ErrorAlert } from '@/components/shared/ErrorAlert'
 import type { DashboardData } from '@/types'
-import type { RecurringBill } from '@/lib/recurringBills/detect'
 
 interface Props {
   initialData: DashboardData
   initialMonth: number
   initialYear: number
-  recurringBills: RecurringBill[]
 }
 
-export function DashboardClient({ initialData, initialMonth, initialYear, recurringBills }: Props) {
+export function DashboardClient({ initialData, initialMonth, initialYear }: Props) {
   const currentMonth = useAppStore((s) => s.currentMonth)
   const currentYear = useAppStore((s) => s.currentYear)
 
@@ -76,10 +72,6 @@ export function DashboardClient({ initialData, initialMonth, initialYear, recurr
       <CategoryGrid categories={d.categories} />
 
       <IncomeStrip expected={d.income.expected} actual={d.income.actual} sources={d.income.sources} />
-
-      <RecentTransactions transactions={d.recent_transactions} />
-
-      <RecurringBillsCard bills={recurringBills} />
     </div>
   )
 }
