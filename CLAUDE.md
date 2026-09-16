@@ -89,11 +89,11 @@ This is a genuinely complete MVP, not a work-in-progress. The next phase is **pr
 
 ## 6. Roadmap & Milestones
 
-### Phase 1 — Ready for a stranger's first look
+### Phase 1 — Ready for a stranger's first look ✅ Done
 
-1. **A real landing page at `/`.** It currently redirects straight to `/login` — no pitch, no explanation. Needs to actually explain the product before asking for a signup.
-2. **Self-service account deletion.** The privacy policy already promises this; nobody can actually do it yet.
-3. **A feedback/support channel.** Family can just text the founder; strangers need an actual way to report a bug or ask a question.
+1. ✅ **A real landing page at `/`.**
+2. ✅ **Self-service account deletion**, in Settings → Danger Zone.
+3. ✅ **A feedback channel** — "Send Feedback" in the account menu.
 
 ### Rejected: "Safe-to-Spend" / "Safe-to-Save"
 
