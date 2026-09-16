@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation'
 import { HouseholdCard } from '@/components/settings/HouseholdCard'
 import { MembersCard } from '@/components/settings/MembersCard'
 import { InviteCard } from '@/components/settings/InviteCard'
+import { CategoriesCard } from '@/components/settings/CategoriesCard'
 import { DeleteAccountCard } from '@/components/settings/DeleteAccountCard'
+import type { Category } from '@/types'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -17,11 +19,19 @@ export default async function SettingsPage() {
     .single()
   if (!member) redirect('/onboarding')
 
-  const { data: members } = await supabase
-    .from('household_members')
-    .select('id, role, joined_at, user:users(id, full_name, email)')
-    .eq('household_id', member.household_id)
-    .order('joined_at')
+  const [{ data: members }, { data: customCategories }] = await Promise.all([
+    supabase
+      .from('household_members')
+      .select('id, role, joined_at, user:users(id, full_name, email)')
+      .eq('household_id', member.household_id)
+      .order('joined_at'),
+    supabase
+      .from('categories')
+      .select('*')
+      .eq('household_id', member.household_id)
+      .eq('is_system', false)
+      .order('name'),
+  ])
 
   const household = member.households as unknown as { id: string; name: string }
   const memberList = (members ?? []) as unknown as Array<{
@@ -46,6 +56,8 @@ export default async function SettingsPage() {
       <MembersCard members={memberList} currentUserId={user.id} />
 
       <InviteCard />
+
+      <CategoriesCard initialCategories={(customCategories ?? []) as Category[]} />
 
       <DeleteAccountCard
         isLastMember={memberList.length <= 1}
