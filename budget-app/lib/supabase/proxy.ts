@@ -32,15 +32,9 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Redirect root to dashboard (authed) or login
-  if (pathname === '/') {
-    const url = request.nextUrl.clone()
-    url.pathname = user ? '/dashboard' : '/login'
-    return NextResponse.redirect(url)
-  }
-
-  // Public paths that don't require auth
+  // Public paths that don't require auth — '/' is the marketing landing page
   const isAuthRoute =
+    pathname === '/' ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/signup') ||
     pathname.startsWith('/invite') ||
@@ -53,8 +47,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users away from auth pages to dashboard
-  if (user && (pathname === '/login' || pathname === '/signup')) {
+  // Redirect authenticated users away from marketing/auth pages to dashboard
+  if (user && (pathname === '/' || pathname === '/login' || pathname === '/signup')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
