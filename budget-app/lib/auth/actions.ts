@@ -67,7 +67,7 @@ export async function signUp(
     return { error: error.message }
   }
 
-  redirect('/onboarding')
+  redirect(`/check-email?email=${encodeURIComponent(email)}`)
 }
 
 export async function signOut(): Promise<void> {
