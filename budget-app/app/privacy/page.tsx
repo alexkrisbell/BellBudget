@@ -59,12 +59,17 @@ export default function PrivacyPage() {
         <section className="space-y-2">
           <h2 className="text-base font-semibold text-slate-800">Deleting your data</h2>
           <p className="text-sm text-slate-600 leading-relaxed">
-            There&apos;s no self-serve account deletion yet. If you&apos;d like your account and
-            data removed, email{' '}
+            You can delete your account at any time from Settings → Danger Zone. If
+            you&apos;re the only member of your household, this permanently deletes the
+            household and everything in it — connected accounts, transactions, and
+            budgets. If your household has other members, only your own account is
+            removed and their data stays intact. Either way, connected bank accounts are
+            properly disconnected from Plaid, not just hidden. This can&apos;t be undone.
+            You can also email{' '}
             <a href="mailto:alexkrisbell@gmail.com" className="text-indigo-600 hover:underline">
               alexkrisbell@gmail.com
             </a>{' '}
-            and it will be deleted manually.
+            if you&apos;d rather have it done for you.
           </p>
         </section>
 

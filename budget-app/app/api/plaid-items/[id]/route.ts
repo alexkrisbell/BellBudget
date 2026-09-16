@@ -1,4 +1,5 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { removePlaidItem } from '@/lib/plaid/disconnect'
 
 export async function PATCH(
   request: Request,
@@ -20,6 +21,16 @@ export async function PATCH(
   const admin = createAdminClient()
 
   if (body.action === 'disconnect') {
+    const { data: item } = await admin
+      .from('plaid_items')
+      .select('id')
+      .eq('id', id)
+      .eq('household_id', member.household_id)
+      .single()
+    if (!item) return Response.json({ error: 'Item not found.' }, { status: 404 })
+
+    await removePlaidItem(admin, item.id)
+
     const { error } = await admin
       .from('plaid_items')
       .update({ status: 'inactive', updated_at: new Date().toISOString() })

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { HouseholdCard } from '@/components/settings/HouseholdCard'
 import { MembersCard } from '@/components/settings/MembersCard'
 import { InviteCard } from '@/components/settings/InviteCard'
+import { DeleteAccountCard } from '@/components/settings/DeleteAccountCard'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -45,6 +46,11 @@ export default async function SettingsPage() {
       <MembersCard members={memberList} currentUserId={user.id} />
 
       <InviteCard />
+
+      <DeleteAccountCard
+        isLastMember={memberList.length <= 1}
+        householdName={household.name}
+      />
     </div>
   )
 }
