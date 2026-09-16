@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { resolveIsIncome } from '@/lib/incomeResolution'
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -55,9 +56,7 @@ export async function GET(request: Request) {
     .lte('date', endDate)
     .order('date', { ascending: false })
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
 
-  if (incomeOnly) query = query.eq('is_income', true) as typeof query
   if (categoryId) {
     query = (
       splitTransactionIds.length > 0
@@ -67,7 +66,28 @@ export async function GET(request: Request) {
   }
   if (accountId) query = query.eq('account_id', accountId) as typeof query
 
-  const { data: transactions, error, count } = await query
+  // A manually recategorized transaction never gets its own is_income flag
+  // updated (see the category route) — filtering "income only" by that raw
+  // flag disagreed with the Dashboard's category-aware total for the exact
+  // same month. Since resolveIsIncome needs the joined category to decide,
+  // apply it in JS instead of at the DB level, and paginate the filtered
+  // result ourselves. A household's monthly transactions are a small enough
+  // set that fetching them unpaginated here is not a real cost.
+  if (incomeOnly) {
+    const { data, error } = await query
+    if (error) return Response.json({ error: error.message }, { status: 500 })
+
+    const filtered = (data ?? []).filter((tx) => resolveIsIncome(tx))
+    const total = filtered.length
+    return Response.json({
+      transactions: filtered.slice(offset, offset + limit),
+      total,
+      page,
+      has_more: total > offset + limit,
+    })
+  }
+
+  const { data: transactions, error, count } = await query.range(offset, offset + limit - 1)
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 

@@ -2,6 +2,7 @@ import type { createClient } from '@/lib/supabase/server'
 import type { DashboardData } from '@/types'
 import { monthRange } from '@/lib/dateRange'
 import { fetchCategoryActuals } from '@/lib/categoryActuals'
+import { normalizeCategoryForIncome, resolveIsIncome } from '@/lib/incomeResolution'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -101,18 +102,8 @@ export async function fetchDashboardRawData({
   return { budget, transactions, streak, notifications, categoryActuals }
 }
 
-// A category the user has (re)assigned is the more authoritative signal —
-// manually recategorizing a transaction never updates its own is_income flag
-// (see app/api/transactions/[id]/category/route.ts), so trust the category's
-// is_income when one is set and only fall back to the transaction's own flag
-// for uncategorized rows.
 function normalizeCategory(category: TxCategory | TxCategory[] | null): TxCategory | null {
-  return Array.isArray(category) ? (category[0] ?? null) : category
-}
-
-function resolveIsIncome(tx: { is_income: boolean; category: TxCategory | TxCategory[] | null }): boolean {
-  const category = normalizeCategory(tx.category)
-  return category ? category.is_income : tx.is_income
+  return normalizeCategoryForIncome(category)
 }
 
 export function computeDashboardData(raw: DashboardRawData): DashboardData {

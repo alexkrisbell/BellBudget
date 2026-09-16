@@ -108,11 +108,6 @@ export function TransactionsClient({ categories, accounts }: Props) {
     [queryClient, excludedParams, params]
   )
 
-  const expenseCategories = useMemo(
-    () => categories.filter((c) => !c.is_income),
-    [categories]
-  )
-
   return (
     <div className="space-y-4">
       {incomeOnly ? (
@@ -126,7 +121,7 @@ export function TransactionsClient({ categories, accounts }: Props) {
         </div>
       ) : (
         <FilterBar
-          categories={expenseCategories}
+          categories={categories}
           accounts={accounts}
           selectedCategory={selectedCategory}
           selectedAccount={selectedAccount}
@@ -143,7 +138,7 @@ export function TransactionsClient({ categories, accounts }: Props) {
 
       <TransactionList
         transactions={transactions}
-        categories={expenseCategories}
+        categories={categories}
         queryKey={['transactions', params]}
         onLoadMore={fetchNextPage}
         hasMore={hasNextPage}
@@ -175,7 +170,7 @@ export function TransactionsClient({ categories, accounts }: Props) {
             ) : (
               <TransactionList
                 transactions={hiddenTransactions}
-                categories={expenseCategories}
+                categories={categories}
                 queryKey={['transactions', excludedParams]}
                 isLoading={hiddenLoading}
                 onInclude={handleInclude}

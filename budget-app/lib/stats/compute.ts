@@ -1,5 +1,6 @@
 import type { createClient } from '@/lib/supabase/server'
 import { monthRange, trailingMonths } from '@/lib/dateRange'
+import { resolveIsIncome } from '@/lib/incomeResolution'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -41,16 +42,6 @@ export async function fetchStatsRawData({
     .lt('date', end)
 
   return { transactions: data ?? [] }
-}
-
-// A category the user has (re)assigned is the more authoritative signal —
-// manually recategorizing a transaction never updates its own is_income flag
-// (see app/api/transactions/[id]/category/route.ts), so trust the category's
-// is_income when one is set and only fall back to the transaction's own flag
-// for uncategorized rows.
-function resolveIsIncome(tx: StatsRawData['transactions'][number]): boolean {
-  const category = Array.isArray(tx.category) ? tx.category[0] : tx.category
-  return category ? category.is_income : tx.is_income
 }
 
 export interface MonthStat {
