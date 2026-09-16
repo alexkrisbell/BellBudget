@@ -29,6 +29,7 @@ export function TransactionRow({
   const isIncome = transaction.is_income
   const displayName = transaction.merchant_name ?? transaction.description
   const isExcludedRow = !!onInclude
+  const canSplit = !isIncome
 
   const splits = transaction.splits
   const hasSplits = !!splits && splits.length > 0
@@ -66,26 +67,31 @@ export function TransactionRow({
   }
 
   return (
-    <div className={`flex items-center gap-3 py-3 group ${isExcludedRow ? 'opacity-50' : ''}`}>
+    <>
+    <div
+      onClick={canSplit ? () => setSplitOpen(true) : undefined}
+      className={`flex items-center gap-3 py-3 px-2 -mx-2 rounded-lg group transition-colors ${
+        isExcludedRow ? 'opacity-50' : ''
+      } ${canSplit ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+    >
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-800 truncate">{displayName}</p>
         <div className="flex items-center gap-2 mt-1">
           {hasSplits ? (
-            <button
-              onClick={() => setSplitOpen(true)}
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 hover:opacity-80 transition-opacity"
-            >
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700">
               <SplitSquareHorizontal className="h-3 w-3" />
               Split ({splits!.length})
               {splitIsStale && <AlertTriangle className="h-3 w-3 text-amber-600" />}
-            </button>
+            </span>
           ) : (
-            <CategoryPicker
-              transactionId={transaction.id}
-              currentCategory={transaction.category ?? null}
-              categories={categories}
-              onUpdate={onCategoryUpdate}
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <CategoryPicker
+                transactionId={transaction.id}
+                currentCategory={transaction.category ?? null}
+                categories={categories}
+                onUpdate={onCategoryUpdate}
+              />
+            </div>
           )}
           {transaction.account && (
             <span className="text-xs text-slate-400">{transaction.account.name}</span>
@@ -101,18 +107,9 @@ export function TransactionRow({
             <p className="text-xs text-slate-400 mt-0.5">Pending</p>
           )}
         </div>
-        {!isIncome && !isExcludedRow && (
-          <button
-            onClick={() => setSplitOpen(true)}
-            title="Split transaction"
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-          >
-            <SplitSquareHorizontal className="h-3.5 w-3.5" />
-          </button>
-        )}
         {isExcludedRow ? (
           <button
-            onClick={handleInclude}
+            onClick={(e) => { e.stopPropagation(); handleInclude() }}
             disabled={loading}
             title="Re-include in budget"
             className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-green-50 text-slate-400 hover:text-green-600 disabled:opacity-40"
@@ -121,7 +118,7 @@ export function TransactionRow({
           </button>
         ) : (
           <button
-            onClick={handleExclude}
+            onClick={(e) => { e.stopPropagation(); handleExclude() }}
             disabled={loading}
             title="Exclude from budget"
             className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-40"
@@ -130,15 +127,16 @@ export function TransactionRow({
           </button>
         )}
       </div>
-      {!isIncome && (
-        <SplitDialog
-          open={splitOpen}
-          onOpenChange={setSplitOpen}
-          transaction={transaction}
-          categories={categories}
-          onSaved={(updated) => onSplitUpdate?.(transaction.id, updated)}
-        />
-      )}
     </div>
+    {canSplit && (
+      <SplitDialog
+        open={splitOpen}
+        onOpenChange={setSplitOpen}
+        transaction={transaction}
+        categories={categories}
+        onSaved={(updated) => onSplitUpdate?.(transaction.id, updated)}
+      />
+    )}
+    </>
   )
 }

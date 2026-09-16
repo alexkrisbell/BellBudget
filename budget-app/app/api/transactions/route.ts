@@ -28,6 +28,20 @@ export async function GET(request: Request) {
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`
   const endDate = new Date(year, month, 0).toISOString().split('T')[0]
 
+  // A split transaction's own category_id is null (see the split route) — its
+  // categories live in transaction_splits instead. Filtering by category must
+  // also catch transactions split into that category, or they silently
+  // disappear from that category's list despite still counting toward its total.
+  let splitTransactionIds: string[] = []
+  if (categoryId) {
+    const { data: splitMatches } = await supabase
+      .from('transaction_splits')
+      .select('transaction_id')
+      .eq('household_id', member.household_id)
+      .eq('category_id', categoryId)
+    splitTransactionIds = (splitMatches ?? []).map((s) => s.transaction_id)
+  }
+
   let query = supabase
     .from('transactions')
     .select(
@@ -44,7 +58,13 @@ export async function GET(request: Request) {
     .range(offset, offset + limit - 1)
 
   if (incomeOnly) query = query.eq('is_income', true) as typeof query
-  if (categoryId) query = query.eq('category_id', categoryId) as typeof query
+  if (categoryId) {
+    query = (
+      splitTransactionIds.length > 0
+        ? query.or(`category_id.eq.${categoryId},id.in.(${splitTransactionIds.join(',')})`)
+        : query.eq('category_id', categoryId)
+    ) as typeof query
+  }
   if (accountId) query = query.eq('account_id', accountId) as typeof query
 
   const { data: transactions, error, count } = await query
