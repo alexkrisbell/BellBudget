@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bell, LogOut, Settings, User } from 'lucide-react'
+import { Bell, LogOut, MessageSquare, Settings, User } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { signOut } from '@/lib/auth/actions'
 import { useNotifications } from '@/hooks/useNotifications'
 import { NotificationPanel } from './NotificationPanel'
+import { FeedbackDialog } from '@/components/shared/FeedbackDialog'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -26,6 +27,7 @@ interface TopBarProps {
 export function TopBar({ title, userFullName, householdId = null }: TopBarProps) {
   const notifCount = useAppStore((s) => s.notifCount)
   const [panelOpen, setPanelOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   const { data } = useNotifications(householdId)
   const notifications = data?.notifications ?? []
@@ -75,6 +77,10 @@ export function TopBar({ title, userFullName, householdId = null }: TopBarProps)
                 <Settings className="h-4 w-4" />
                 Settings
               </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => setFeedbackOpen(true)}>
+                <MessageSquare className="h-4 w-4" />
+                Send Feedback
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" className="cursor-pointer">
                 <form action={signOut} className="flex items-center gap-2 w-full">
@@ -92,6 +98,8 @@ export function TopBar({ title, userFullName, householdId = null }: TopBarProps)
         onClose={() => setPanelOpen(false)}
         notifications={notifications}
       />
+
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </>
   )
 }

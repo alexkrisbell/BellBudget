@@ -72,8 +72,7 @@ export default function RootPage() {
             The budgeting app built for couples who manage their money together.
           </p>
           <p className="mt-3 text-sm sm:text-base text-white/50 max-w-lg mx-auto">
-            Not a ledger. Not accounting software. A shared control panel for your
-            household&apos;s money.
+            Your money. Your goals. One shared plan.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
