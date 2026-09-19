@@ -9,7 +9,7 @@ Most budgeting apps are single-user accounting software with "household sharing"
 * "Can we afford this?"
 * "How much can we spend this weekend?"
 * "Are we overspending on restaurants?"
-* "How much did we invest this month?" *(roadmap — see §6)*
+* "How much did we invest this month?" *(active work — see §6)*
 * "How much money can we safely move into savings?"
 * "What bills are coming up?"
 
@@ -25,7 +25,7 @@ It should feel like **a shared control panel for a household's money** — not a
 
 * Couples and households who want one shared view of their finances instead of two separate mental models.
 * Each household is its own private, isolated workspace — "shared" means shared *within* a household, never across households. A household can be two people or more (roommates, family), but the couples use case is the primary design target.
-* Right now: the founder's own household plus a small circle of family testing it. Not yet built or positioned for the general public — see §6 and §7.
+* Right now: the founder's own household plus a small circle of friends/family testing it. **Onboarding new strangers is paused** (see §6) — not because the app isn't ready in a technical sense, but because the founder concluded it doesn't yet fully deliver on its own founding purpose without investment accounts. Friends/family testing continues; it's serving a different job now (find what's missing) than growth.
 
 ---
 
@@ -89,6 +89,13 @@ This is a genuinely complete MVP, not a work-in-progress. The next phase is **pr
 
 ## 6. Roadmap & Milestones
 
+### Two kinds of validation — don't confuse them
+
+*External validation* (would strangers want this) and *founder validation* (does this serve the household it was actually built for) are different kinds of evidence, and this project uses both, deliberately, for different decisions:
+
+* The Feature Test (§4) and the "don't build on assumption" rule below are about **external validation** — they exist to stop guessing what strangers want instead of asking them.
+* Investment tracking (below) is being built on **founder validation** instead — not "strangers demanded it," but "the founder's own stated reason for building Bell Bucks (one shared financial picture with his wife) isn't met without it," since the majority of his money lives in an account Bell Bucks can't see. That's a legitimate, different reason to build something, and it doesn't weaken the external-validation rule for stranger-facing features — it just doesn't apply here, because the user in question is already known and already validated (Milestone 1).
+
 ### Phase 1 — Ready for a stranger's first look ✅ Done
 
 1. ✅ **A real landing page at `/`.**
@@ -99,21 +106,23 @@ This is a genuinely complete MVP, not a work-in-progress. The next phase is **pr
 
 Both were seriously considered and cut — worth recording why, since it's the Feature Test in §4 actually working. `total_remaining` on the Budget page already nets planned-but-unpaid bills against spending (if rent has a line item, it's already subtracted from "remaining" before it's even paid), and per-category planned-vs-actual already answers "are we overspending on X." A dedicated Safe-to-Spend/Save calculation would have been mostly redundant with math the app already surfaces, validated against real monthly usage rather than guessed at. **Don't re-propose these** without a specific, concrete gap that remaining-budget and net-worth-trend genuinely don't cover (e.g., cash-flow *timing* within the month, not just monthly totals) — and get that gap from a real user, not a brainstorm.
 
-### Phase 2 — Get it in front of real strangers
+### Active — Investment tracking
 
-No new "insight" feature is queued up right now, deliberately — two were proposed and both turned out to be redundant with what's already built (see above). Once Phase 1 is done:
+Schwab's Individual Trader API was previously scoped as the likely path (self-service approval, built for exactly this "connect your own accounts" use case, ~120 req/min rate limit) — revisit that research when starting real implementation work.
+
+Once this exists, **merge the Stats page into it** rather than keeping two destinations — a net worth trend and an investment balance are the same kind of number, and Stats was already flagged as maybe not pulling its weight as its own nav item. Don't build the merged page speculatively ahead of the Schwab work landing; do it as part of the same effort, not before.
+
+### Paused — Get it in front of real strangers
+
+*(Previously "Phase 2." Paused, not abandoned — resume when the founder decides Bell Bucks is ready to represent his own finances well, not on a timer.)*
 
 1. Get 5–10 real non-family households using it (see Milestones below).
-2. Let *their* feedback — not another brainstorm — decide what's actually missing. That might be investment tracking, might be an upcoming-bills timeline (the recurring-bills detection already surfaces a "next expected" date per bill, which may already be enough), might be something not on this list at all.
-
-### Phase 3 — Investment tracking (tentative)
-
-Still the most likely "real new feature" once there's external signal it's wanted: Schwab's Individual Trader API was previously scoped as the likely path (self-service approval, built for exactly this "connect your own accounts" use case). Explicitly not part of the initial wedge — it's a real integration project that doesn't serve the urgent "can we afford this" question, and per Phase 2 above, shouldn't be started on assumption alone.
+2. Let *their* feedback — not another brainstorm — decide what's actually missing beyond investment tracking.
 
 ### Milestones (replaces "launch" as the goal)
 
-1. ✅ The founder's household uses it every month. *(Already true.)*
-2. 20 strangers use it for 60 days.
+1. ✅ The founder's household uses it every month. *(True, but see the note above — "uses it" and "it covers our actual finances" turned out to be different bars.)*
+2. 20 strangers use it for 60 days. *(Paused — see above.)*
 3. 10 strangers say they'd be genuinely upset if it disappeared.
 4. 5–10 strangers voluntarily offer to pay for it.
 5. 100 households pay.
