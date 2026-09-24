@@ -85,6 +85,7 @@ export interface InvestmentAccount {
   brokerage_connection_id: string | null
   schwab_account_id: string
   nickname: string | null
+  last4: string | null
   account_type: string | null
   cash_balance: number | null
   market_value: number | null

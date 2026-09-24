@@ -162,6 +162,9 @@ async function fetchAndStoreHoldings(
     const hashValue = accountNumbers.find(
       (a) => a.accountNumber === securitiesAccount.accountNumber
     )?.hashValue ?? securitiesAccount.accountNumber
+    const last4 = securitiesAccount.accountNumber
+      ? securitiesAccount.accountNumber.slice(-4)
+      : null
 
     // market_value here is Schwab's liquidationValue — the account's TOTAL
     // value, cash included — not just the securities portion. cash_balance
@@ -176,6 +179,7 @@ async function fetchAndStoreHoldings(
           household_id: householdId,
           brokerage_connection_id: connectionId,
           schwab_account_id: hashValue,
+          last4,
           account_type: securitiesAccount.type ?? null,
           cash_balance: securitiesAccount.currentBalances?.cashBalance ?? null,
           market_value: totalValue,
