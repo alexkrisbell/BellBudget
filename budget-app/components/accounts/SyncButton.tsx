@@ -31,11 +31,17 @@ export function SyncButton() {
         return
       }
 
-      const { added, modified, removed } = data as { added: number; modified: number; removed: number }
+      const { added, modified, removed, investmentsSynced } = data as {
+        added: number
+        modified: number
+        removed: number
+        investmentsSynced: boolean
+      }
       const parts: string[] = []
       if (added > 0) parts.push(`${added} new`)
       if (modified > 0) parts.push(`${modified} updated`)
       if (removed > 0) parts.push(`${removed} removed`)
+      if (investmentsSynced) parts.push('investments updated')
       setSummary(parts.length > 0 ? parts.join(', ') : 'Already up to date')
       setState('done')
       router.refresh()

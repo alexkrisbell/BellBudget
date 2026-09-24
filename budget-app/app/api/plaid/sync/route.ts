@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { syncTransactions } from '@/lib/plaid/sync'
+import { syncSchwabHoldings } from '@/lib/schwab/sync'
 
 // Rate limiting: one manual sync per household per 5 minutes
 const lastSyncTime = new Map<string, number>()
@@ -79,5 +80,25 @@ export async function POST(request: Request) {
     { added: 0, modified: 0, removed: 0 }
   )
 
-  return Response.json(totals)
+  // Ride along on the same manual "Sync Now" action rather than needing its
+  // own button — same reasoning as folding it into the daily cron.
+  const { data: brokerageConnection } = await admin
+    .from('brokerage_connections')
+    .select('id')
+    .eq('household_id', member.household_id)
+    .eq('provider', 'schwab')
+    .neq('status', 'requires_reauth')
+    .maybeSingle()
+
+  let investmentsSynced = false
+  if (brokerageConnection) {
+    try {
+      await syncSchwabHoldings(member.household_id)
+      investmentsSynced = true
+    } catch (err) {
+      console.error('Manual Schwab sync failed:', err)
+    }
+  }
+
+  return Response.json({ ...totals, investmentsSynced })
 }

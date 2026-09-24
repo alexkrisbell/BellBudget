@@ -155,7 +155,7 @@ async function fetchAndStoreHoldings(
     // total"), never to be added on top of market_value.
     const totalValue = securitiesAccount.currentBalances?.liquidationValue ?? null
 
-    const { data: investmentAccount } = await admin
+    const { data: investmentAccount, error: accountError } = await admin
       .from('investment_accounts')
       .upsert(
         {
@@ -172,15 +172,17 @@ async function fetchAndStoreHoldings(
       )
       .select('id')
       .single()
+    if (accountError) throw new Error(`investment_accounts upsert failed: ${accountError.message}`)
     if (!investmentAccount) continue
 
     if (totalValue != null) {
-      await admin
+      const { error: snapshotError } = await admin
         .from('investment_account_balance_snapshots')
         .upsert(
           { investment_account_id: investmentAccount.id, household_id: householdId, date: today, balance: totalValue },
           { onConflict: 'investment_account_id,date' }
         )
+      if (snapshotError) throw new Error(`investment_account_balance_snapshots upsert failed: ${snapshotError.message}`)
     }
 
     const holdingRows = (securitiesAccount.positions ?? [])
@@ -199,9 +201,10 @@ async function fetchAndStoreHoldings(
       }))
 
     if (holdingRows.length > 0) {
-      await admin
+      const { error: holdingsError } = await admin
         .from('investment_holdings')
         .upsert(holdingRows, { onConflict: 'investment_account_id,symbol,date' })
+      if (holdingsError) throw new Error(`investment_holdings upsert failed: ${holdingsError.message}`)
     }
   }
 }
