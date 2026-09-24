@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { syncTransactions } from '@/lib/plaid/sync'
+import { syncSchwabHoldings } from '@/lib/schwab/sync'
 
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization')
@@ -8,21 +9,34 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminClient()
-  const { data: items } = await admin
-    .from('plaid_items')
-    .select('id')
-    .eq('status', 'active')
+  const [{ data: items }, { data: connections }] = await Promise.all([
+    admin.from('plaid_items').select('id').eq('status', 'active'),
+    admin.from('brokerage_connections').select('household_id').neq('status', 'requires_reauth'),
+  ])
 
-  if (!items || items.length === 0) {
-    return Response.json({ message: 'No active items to sync.' })
-  }
+  const plaidResults = items && items.length > 0
+    ? await Promise.allSettled(items.map((item: { id: string }) => syncTransactions(item.id)))
+    : []
 
-  const results = await Promise.allSettled(
-    items.map((item: { id: string }) => syncTransactions(item.id))
-  )
+  // Schwab's refresh token rotates and resets its 7-day expiry on every use,
+  // so running this in the same daily cron as Plaid is what keeps the
+  // connection alive indefinitely without the user re-authenticating.
+  const schwabResults = connections && connections.length > 0
+    ? await Promise.allSettled(
+        connections.map((c: { household_id: string }) => syncSchwabHoldings(c.household_id))
+      )
+    : []
 
-  const succeeded = results.filter((r) => r.status === 'fulfilled').length
-  const failed = results.filter((r) => r.status === 'rejected').length
-
-  return Response.json({ synced: succeeded, failed, total: items.length })
+  return Response.json({
+    plaid: {
+      synced: plaidResults.filter((r) => r.status === 'fulfilled').length,
+      failed: plaidResults.filter((r) => r.status === 'rejected').length,
+      total: items?.length ?? 0,
+    },
+    schwab: {
+      synced: schwabResults.filter((r) => r.status === 'fulfilled').length,
+      failed: schwabResults.filter((r) => r.status === 'rejected').length,
+      total: connections?.length ?? 0,
+    },
+  })
 }

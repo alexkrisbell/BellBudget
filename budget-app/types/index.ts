@@ -69,6 +69,43 @@ export interface Account {
   created_at: string
 }
 
+export interface BrokerageConnection {
+  id: string
+  household_id: string
+  provider: 'schwab'
+  status: 'active' | 'error' | 'requires_reauth'
+  last_synced_at: string | null
+  created_at: string
+  // access_token_vault_id / refresh_token_vault_id are UUIDs referencing vault.secrets — never sent to client
+}
+
+export interface InvestmentAccount {
+  id: string
+  household_id: string
+  brokerage_connection_id: string | null
+  schwab_account_id: string
+  nickname: string | null
+  account_type: string | null
+  cash_balance: number | null
+  market_value: number | null
+  balance_updated_at: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface InvestmentHolding {
+  id: string
+  household_id: string
+  investment_account_id: string
+  symbol: string
+  description: string | null
+  quantity: number
+  market_value: number
+  cost_basis: number | null
+  date: string
+  created_at: string
+}
+
 export interface Category {
   id: string
   household_id: string | null

@@ -7,6 +7,7 @@ type NotificationType =
   | 'streak_update'
   | 'item_error'
   | 'sync_failed'
+  | 'schwab_reconnect_required'
 
 interface CreateNotificationOptions {
   householdId: string
