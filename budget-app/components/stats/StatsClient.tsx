@@ -200,7 +200,7 @@ export function StatsClient({ initialData, initialNetWorth, initialMonths }: Pro
             <p className="text-sm font-medium text-slate-600 mb-1">Spent per month</p>
             <p className="text-xs text-slate-400 mb-4">Click a bar to open that month&apos;s dashboard.</p>
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={chartMonths} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+              <BarChart data={chartMonths} margin={{ top: 4, right: 32, left: 8, bottom: 0 }}>
                 <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={56} tickFormatter={(v: number) => formatCurrency(v)} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }} />
@@ -208,7 +208,7 @@ export function StatsClient({ initialData, initialNetWorth, initialMonths }: Pro
                   y={data.avgMonthlySpend}
                   stroke="#6366f1"
                   strokeDasharray="4 4"
-                  label={{ value: 'Avg', position: 'insideTopLeft', fontSize: 11, fill: '#6366f1' }}
+                  label={{ value: 'Avg', position: 'right', fontSize: 11, fill: '#6366f1' }}
                 />
                 <Bar
                   dataKey="spent"
