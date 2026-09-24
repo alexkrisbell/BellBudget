@@ -1,27 +1,21 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { exchangeSchwabCode } from '@/lib/schwab/oauth'
+import { exchangeSchwabCode, verifySchwabState } from '@/lib/schwab/oauth'
 import { syncSchwabHoldings } from '@/lib/schwab/sync'
-
-const STATE_COOKIE = 'schwab_oauth_state'
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const state = request.nextUrl.searchParams.get('state')
   const errorParam = request.nextUrl.searchParams.get('error')
 
-  const expectedState = request.cookies.get(STATE_COOKIE)?.value
-
   function redirectTo(path: string): NextResponse {
-    const response = NextResponse.redirect(new URL(path, request.url))
-    response.cookies.delete(STATE_COOKIE)
-    return response
+    return NextResponse.redirect(new URL(path, request.url))
   }
 
   if (errorParam) {
     return redirectTo(`/settings?schwab_error=${encodeURIComponent(errorParam)}`)
   }
-  if (!code || !state || !expectedState || state !== expectedState) {
+  if (!code || !state) {
     return redirectTo('/settings?schwab_error=invalid_state')
   }
 
@@ -35,6 +29,10 @@ export async function GET(request: NextRequest) {
     .eq('user_id', user.id)
     .single()
   if (!member) return redirectTo('/onboarding')
+
+  if (!verifySchwabState(state, member.household_id)) {
+    return redirectTo('/settings?schwab_error=invalid_state')
+  }
 
   const admin = createAdminClient()
 
