@@ -29,10 +29,10 @@ export function SchwabConnectionCard({ initialConnection, initialAccounts }: Pro
     }
   )
 
-  const totalValue = initialAccounts.reduce(
-    (sum, acc) => sum + (acc.market_value ?? 0) + (acc.cash_balance ?? 0),
-    0
-  )
+  // market_value is already the account's total value (cash included) — see
+  // the comment in lib/schwab/sync.ts. Adding cash_balance on top would
+  // double-count it.
+  const totalValue = initialAccounts.reduce((sum, acc) => sum + (acc.market_value ?? 0), 0)
 
   async function handleDisconnect() {
     if (!confirm('Disconnect Schwab? Bell Bucks will stop syncing your investment balances.')) return

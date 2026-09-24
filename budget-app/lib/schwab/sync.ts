@@ -149,6 +149,12 @@ async function fetchAndStoreHoldings(
       (a) => a.accountNumber === securitiesAccount.accountNumber
     )?.hashValue ?? securitiesAccount.accountNumber
 
+    // market_value here is Schwab's liquidationValue — the account's TOTAL
+    // value, cash included — not just the securities portion. cash_balance
+    // is a subset of it, stored separately for display ("$X in cash of $Y
+    // total"), never to be added on top of market_value.
+    const totalValue = securitiesAccount.currentBalances?.liquidationValue ?? null
+
     const { data: investmentAccount } = await admin
       .from('investment_accounts')
       .upsert(
@@ -158,7 +164,7 @@ async function fetchAndStoreHoldings(
           schwab_account_id: hashValue,
           account_type: securitiesAccount.type ?? null,
           cash_balance: securitiesAccount.currentBalances?.cashBalance ?? null,
-          market_value: securitiesAccount.currentBalances?.liquidationValue ?? null,
+          market_value: totalValue,
           balance_updated_at: new Date().toISOString(),
           is_active: true,
         },
@@ -167,6 +173,15 @@ async function fetchAndStoreHoldings(
       .select('id')
       .single()
     if (!investmentAccount) continue
+
+    if (totalValue != null) {
+      await admin
+        .from('investment_account_balance_snapshots')
+        .upsert(
+          { investment_account_id: investmentAccount.id, household_id: householdId, date: today, balance: totalValue },
+          { onConflict: 'investment_account_id,date' }
+        )
+    }
 
     const holdingRows = (securitiesAccount.positions ?? [])
       .filter((p) => p.instrument?.symbol)

@@ -82,4 +82,36 @@ describe('computeNetWorthData', () => {
     expect(result.current).toBe(1000)
     expect(result.changeAmount).toBeNull()
   })
+
+  it('adds investment snapshots as assets alongside bank/credit accounts on the same day', () => {
+    const raw: NetWorthRawData = {
+      snapshots: [
+        { date: '2026-05-01', balance: 5000, account: { type: 'depository' } },
+        { date: '2026-05-01', balance: 1200, account: { type: 'credit' } },
+      ],
+      investmentSnapshots: [{ date: '2026-05-01', balance: 100000 }],
+    }
+
+    const result = computeNetWorthData(raw)
+
+    expect(result.current).toBe(5000 - 1200 + 100000)
+  })
+
+  it('treats a day with only investment snapshots as its own point', () => {
+    const raw: NetWorthRawData = {
+      snapshots: [],
+      investmentSnapshots: [{ date: '2026-05-01', balance: 50000 }],
+    }
+
+    const result = computeNetWorthData(raw)
+
+    expect(result.points).toEqual([{ date: '2026-05-01', netWorth: 50000 }])
+  })
+
+  it('works without investmentSnapshots at all (optional field, backward compatible)', () => {
+    const result = computeNetWorthData({
+      snapshots: [{ date: '2026-05-01', balance: 1000, account: { type: 'depository' } }],
+    })
+    expect(result.current).toBe(1000)
+  })
 })

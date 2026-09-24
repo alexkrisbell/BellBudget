@@ -18,6 +18,9 @@ export interface NetWorthRawData {
     balance: number
     account: SnapshotAccount | SnapshotAccount[] | null
   }>
+  // Investment account balances (Schwab) — always an asset, never a
+  // liability, so no account "type" is needed alongside these.
+  investmentSnapshots?: Array<{ date: string; balance: number }>
 }
 
 interface FetchNetWorthRawDataArgs {
@@ -34,14 +37,22 @@ export async function fetchNetWorthRawData({
   const months = trailingMonths(monthsBack)
   const { start } = monthRange(months[0].month, months[0].year)
 
-  const { data } = await supabase
-    .from('account_balance_snapshots')
-    .select('date, balance, account:accounts(type)')
-    .eq('household_id', householdId)
-    .gte('date', start)
-    .order('date', { ascending: true })
+  const [{ data }, { data: investmentData }] = await Promise.all([
+    supabase
+      .from('account_balance_snapshots')
+      .select('date, balance, account:accounts(type)')
+      .eq('household_id', householdId)
+      .gte('date', start)
+      .order('date', { ascending: true }),
+    supabase
+      .from('investment_account_balance_snapshots')
+      .select('date, balance')
+      .eq('household_id', householdId)
+      .gte('date', start)
+      .order('date', { ascending: true }),
+  ])
 
-  return { snapshots: data ?? [] }
+  return { snapshots: data ?? [], investmentSnapshots: investmentData ?? [] }
 }
 
 export interface NetWorthPoint {
@@ -66,6 +77,9 @@ export function computeNetWorthData(raw: NetWorthRawData): NetWorthData {
     const type = resolveAccountType(snap.account)
     const signed = type && LIABILITY_TYPES.has(type) ? -snap.balance : snap.balance
     byDate.set(snap.date, (byDate.get(snap.date) ?? 0) + signed)
+  }
+  for (const snap of raw.investmentSnapshots ?? []) {
+    byDate.set(snap.date, (byDate.get(snap.date) ?? 0) + snap.balance)
   }
 
   const points = [...byDate.entries()]
