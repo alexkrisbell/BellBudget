@@ -13,10 +13,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (errorParam) {
-    return redirectTo(`/settings?schwab_error=${encodeURIComponent(errorParam)}`)
+    return redirectTo(`/accounts?schwab_error=${encodeURIComponent(errorParam)}`)
   }
   if (!code || !state) {
-    return redirectTo('/settings?schwab_error=invalid_state')
+    return redirectTo('/accounts?schwab_error=invalid_state')
   }
 
   const supabase = await createClient()
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   if (!member) return redirectTo('/onboarding')
 
   if (!verifySchwabState(state, member.household_id)) {
-    return redirectTo('/settings?schwab_error=invalid_state')
+    return redirectTo('/accounts?schwab_error=invalid_state')
   }
 
   const admin = createAdminClient()
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (err) {
     console.error('Schwab callback error:', err)
-    return redirectTo('/settings?schwab_error=connect_failed')
+    return redirectTo('/accounts?schwab_error=connect_failed')
   }
 
   // Best-effort, non-blocking — connection is already saved, so a sync
@@ -103,5 +103,5 @@ export async function GET(request: NextRequest) {
     console.error('Initial Schwab sync failed:', err)
   )
 
-  return redirectTo('/settings?schwab_connected=1')
+  return redirectTo('/accounts?schwab_connected=1')
 }

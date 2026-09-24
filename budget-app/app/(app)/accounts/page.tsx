@@ -1,9 +1,11 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { AccountCard } from '@/components/accounts/AccountCard'
 import { PlaidLinkButton } from '@/components/accounts/PlaidLinkButton'
 import { SyncButton } from '@/components/accounts/SyncButton'
-import type { Account, PlaidItem } from '@/types'
+import { SchwabConnectionCard } from '@/components/accounts/SchwabConnectionCard'
+import type { Account, PlaidItem, BrokerageConnection, InvestmentAccount } from '@/types'
 
 interface AccountGroup {
   item: PlaidItem
@@ -29,6 +31,8 @@ export default async function AccountsPage() {
     { data: accounts },
     { data: householdMembers },
     { data: txCounts },
+    { data: brokerageConnection },
+    { data: investmentAccounts },
   ] = await Promise.all([
     supabase
       .from('plaid_items')
@@ -53,6 +57,17 @@ export default async function AccountsPage() {
       .select('account_id')
       .eq('household_id', member.household_id)
       .eq('excluded', false),
+    supabase
+      .from('brokerage_connections')
+      .select('id, household_id, provider, status, last_synced_at, created_at')
+      .eq('household_id', member.household_id)
+      .eq('provider', 'schwab')
+      .maybeSingle(),
+    supabase
+      .from('investment_accounts')
+      .select('*')
+      .eq('household_id', member.household_id)
+      .eq('is_active', true),
   ])
 
   // Build member name lookup
@@ -120,6 +135,13 @@ export default async function AccountsPage() {
           <PlaidLinkButton />
         </div>
       </div>
+
+      <Suspense>
+        <SchwabConnectionCard
+          initialConnection={brokerageConnection as BrokerageConnection | null}
+          initialAccounts={(investmentAccounts ?? []) as InvestmentAccount[]}
+        />
+      </Suspense>
 
       {!hasGrouping ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">

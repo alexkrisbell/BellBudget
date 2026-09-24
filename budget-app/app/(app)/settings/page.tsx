@@ -1,13 +1,11 @@
-import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { HouseholdCard } from '@/components/settings/HouseholdCard'
 import { MembersCard } from '@/components/settings/MembersCard'
 import { InviteCard } from '@/components/settings/InviteCard'
 import { CategoriesCard } from '@/components/settings/CategoriesCard'
-import { SchwabConnectionCard } from '@/components/settings/SchwabConnectionCard'
 import { DeleteAccountCard } from '@/components/settings/DeleteAccountCard'
-import type { Category, BrokerageConnection, InvestmentAccount } from '@/types'
+import type { Category } from '@/types'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -21,7 +19,7 @@ export default async function SettingsPage() {
     .single()
   if (!member) redirect('/onboarding')
 
-  const [{ data: members }, { data: customCategories }, { data: brokerageConnection }, { data: investmentAccounts }] = await Promise.all([
+  const [{ data: members }, { data: customCategories }] = await Promise.all([
     supabase
       .from('household_members')
       .select('id, role, joined_at, user:users(id, full_name, email)')
@@ -33,17 +31,6 @@ export default async function SettingsPage() {
       .eq('household_id', member.household_id)
       .eq('is_system', false)
       .order('name'),
-    supabase
-      .from('brokerage_connections')
-      .select('id, household_id, provider, status, last_synced_at, created_at')
-      .eq('household_id', member.household_id)
-      .eq('provider', 'schwab')
-      .maybeSingle(),
-    supabase
-      .from('investment_accounts')
-      .select('*')
-      .eq('household_id', member.household_id)
-      .eq('is_active', true),
   ])
 
   const household = member.households as unknown as { id: string; name: string }
@@ -71,13 +58,6 @@ export default async function SettingsPage() {
       <InviteCard />
 
       <CategoriesCard initialCategories={(customCategories ?? []) as Category[]} />
-
-      <Suspense>
-        <SchwabConnectionCard
-          initialConnection={brokerageConnection as BrokerageConnection | null}
-          initialAccounts={(investmentAccounts ?? []) as InvestmentAccount[]}
-        />
-      </Suspense>
 
       <DeleteAccountCard
         isLastMember={memberList.length <= 1}
