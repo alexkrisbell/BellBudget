@@ -27,6 +27,7 @@ function holding(overrides: Partial<InvestmentHolding> = {}): InvestmentHolding 
     investment_account_id: 'acc-1',
     symbol: 'VTI',
     description: 'Vanguard Total Stock Market',
+    asset_type: 'EQUITY',
     quantity: 10,
     market_value: 1000,
     cost_basis: 800,

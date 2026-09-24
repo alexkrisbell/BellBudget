@@ -11,7 +11,7 @@ interface SchwabAccountNumber {
 }
 
 interface SchwabPosition {
-  instrument?: { symbol?: string; description?: string }
+  instrument?: { symbol?: string; description?: string; assetType?: string }
   longQuantity?: number
   shortQuantity?: number
   marketValue?: number
@@ -210,6 +210,7 @@ async function fetchAndStoreHoldings(
         investment_account_id: investmentAccount.id,
         symbol: p.instrument!.symbol!,
         description: p.instrument?.description ?? null,
+        asset_type: p.instrument?.assetType ?? null,
         quantity: (p.longQuantity ?? 0) - (p.shortQuantity ?? 0),
         market_value: p.marketValue ?? 0,
         cost_basis: p.averagePrice != null && p.longQuantity != null

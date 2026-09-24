@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronDown, Pencil, Check, X } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { AccountHoldings } from '@/lib/investments/compute'
+import type { InvestmentHolding } from '@/types'
 
 interface Props {
   accounts: AccountHoldings[]
@@ -13,6 +14,16 @@ interface Props {
 function fallbackLabel(account: AccountHoldings['account']): string {
   const type = account.account_type ?? 'Account'
   return account.last4 ? `${type} ····${account.last4}` : type
+}
+
+// Schwab reports a short position as a negative quantity — "-3 sh" reads
+// like a bug rather than "you're short 3 contracts." Options also aren't
+// "shares," so the unit label needs to reflect asset_type too.
+function formatQuantity(h: InvestmentHolding): string {
+  const unit = h.asset_type === 'OPTION' ? 'contract' : 'sh'
+  const amount = Math.abs(h.quantity)
+  const plural = amount === 1 ? '' : 's'
+  return h.quantity < 0 ? `Short ${amount} ${unit}${plural}` : `${amount} ${unit}${plural}`
 }
 
 function AccountHeader({ account, isOpen, onToggle }: {
@@ -136,7 +147,7 @@ export function HoldingsCard({ accounts }: Props) {
                           </div>
                           <div className="text-right shrink-0 pl-3">
                             <p className="text-slate-700">{formatCurrency(h.market_value)}</p>
-                            <p className="text-xs text-slate-400">{h.quantity} sh</p>
+                            <p className="text-xs text-slate-400">{formatQuantity(h)}</p>
                           </div>
                         </li>
                       ))}

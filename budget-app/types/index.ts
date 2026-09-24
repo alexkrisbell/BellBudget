@@ -100,6 +100,7 @@ export interface InvestmentHolding {
   investment_account_id: string
   symbol: string
   description: string | null
+  asset_type: string | null
   quantity: number
   market_value: number
   cost_basis: number | null
