@@ -31,19 +31,21 @@ export function SyncButton() {
         return
       }
 
-      const { added, modified, removed, investmentsSynced } = data as {
+      const { added, modified, removed, investmentsSynced, investmentsError } = data as {
         added: number
         modified: number
         removed: number
         investmentsSynced: boolean
+        investmentsError?: string
       }
       const parts: string[] = []
       if (added > 0) parts.push(`${added} new`)
       if (modified > 0) parts.push(`${modified} updated`)
       if (removed > 0) parts.push(`${removed} removed`)
       if (investmentsSynced) parts.push('investments updated')
+      if (investmentsError) parts.push(`investments failed: ${investmentsError}`)
       setSummary(parts.length > 0 ? parts.join(', ') : 'Already up to date')
-      setState('done')
+      setState(investmentsError ? 'error' : 'done')
       router.refresh()
     } catch {
       setSummary('Network error. Try again.')

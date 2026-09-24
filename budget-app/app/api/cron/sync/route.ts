@@ -34,8 +34,10 @@ export async function GET(request: Request) {
       total: items?.length ?? 0,
     },
     schwab: {
-      synced: schwabResults.filter((r) => r.status === 'fulfilled').length,
-      failed: schwabResults.filter((r) => r.status === 'rejected').length,
+      // syncSchwabHoldings resolves with { ok, error } rather than rejecting,
+      // so success/failure is read from the value, not settle status.
+      synced: schwabResults.filter((r) => r.status === 'fulfilled' && r.value.ok).length,
+      failed: schwabResults.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length,
       total: connections?.length ?? 0,
     },
   })

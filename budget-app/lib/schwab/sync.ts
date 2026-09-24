@@ -35,11 +35,21 @@ async function schwabFetch(path: string, accessToken: string): Promise<Response>
   })
 }
 
+export interface SchwabSyncResult {
+  ok: boolean
+  error?: string
+}
+
 // Always refreshes before syncing rather than reusing a cached access token —
 // Schwab access tokens only live ~30 min so a once-daily cron would find them
 // expired anyway, and refreshing on every sync is what keeps the refresh
 // token's 7-day window rolling forward indefinitely (see lib/schwab/oauth.ts).
-export async function syncSchwabHoldings(householdId: string): Promise<void> {
+//
+// Returns a result instead of throwing/swallowing internally — a previous
+// version caught its own errors and just logged them, so every caller
+// (including the manual "Sync Now" button) saw a false "success" even when
+// the actual holdings fetch/write failed.
+export async function syncSchwabHoldings(householdId: string): Promise<SchwabSyncResult> {
   const admin = createAdminClient()
 
   const { data: connection } = await admin
@@ -48,12 +58,12 @@ export async function syncSchwabHoldings(householdId: string): Promise<void> {
     .eq('household_id', householdId)
     .eq('provider', 'schwab')
     .single()
-  if (!connection) return
+  if (!connection) return { ok: false, error: 'No Schwab connection found.' }
 
   const { data: refreshToken } = await admin.rpc('vault_get_schwab_token', {
     p_secret_id: connection.refresh_token_vault_id,
   })
-  if (!refreshToken) return
+  if (!refreshToken) return { ok: false, error: 'Could not retrieve the stored refresh token.' }
 
   let accessToken: string
   try {
@@ -81,9 +91,10 @@ export async function syncSchwabHoldings(householdId: string): Promise<void> {
       })
       .eq('id', connection.id)
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'Token refresh failed.'
     console.error(`[syncSchwabHoldings] refresh failed for household ${householdId}:`, err)
     await handleRefreshFailure(admin, householdId, connection.id)
-    return
+    return { ok: false, error: message }
   }
 
   try {
@@ -92,8 +103,11 @@ export async function syncSchwabHoldings(householdId: string): Promise<void> {
       .from('brokerage_connections')
       .update({ last_synced_at: new Date().toISOString() })
       .eq('id', connection.id)
+    return { ok: true }
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'Holdings fetch failed.'
     console.error(`[syncSchwabHoldings] holdings fetch failed for household ${householdId}:`, err)
+    return { ok: false, error: message }
   }
 }
 

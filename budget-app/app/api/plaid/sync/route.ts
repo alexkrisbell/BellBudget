@@ -91,14 +91,15 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   let investmentsSynced = false
+  let investmentsError: string | undefined
   if (brokerageConnection) {
-    try {
-      await syncSchwabHoldings(member.household_id)
-      investmentsSynced = true
-    } catch (err) {
-      console.error('Manual Schwab sync failed:', err)
+    const result = await syncSchwabHoldings(member.household_id)
+    investmentsSynced = result.ok
+    if (!result.ok) {
+      console.error('Manual Schwab sync failed:', result.error)
+      investmentsError = result.error
     }
   }
 
-  return Response.json({ ...totals, investmentsSynced })
+  return Response.json({ ...totals, investmentsSynced, investmentsError })
 }

@@ -99,9 +99,9 @@ export async function GET(request: NextRequest) {
 
   // Best-effort, non-blocking — connection is already saved, so a sync
   // hiccup here shouldn't turn a successful connect into an error page.
-  syncSchwabHoldings(member.household_id).catch((err) =>
-    console.error('Initial Schwab sync failed:', err)
-  )
+  syncSchwabHoldings(member.household_id).then((result) => {
+    if (!result.ok) console.error('Initial Schwab sync failed:', result.error)
+  })
 
   return redirectTo('/accounts?schwab_connected=1')
 }
