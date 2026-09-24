@@ -1,6 +1,5 @@
 import { randomBytes } from 'crypto'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSchwabAuthorizationUrl } from '@/lib/schwab/oauth'
 
@@ -19,14 +18,19 @@ export async function GET() {
   if (!member) return Response.json({ error: 'No household.' }, { status: 400 })
 
   const state = randomBytes(24).toString('hex')
-  const cookieStore = await cookies()
-  cookieStore.set(STATE_COOKIE, state, {
+
+  // Attach the cookie directly to the redirect response — relying on
+  // cookies().set() from next/headers alongside the throw-based redirect()
+  // from next/navigation didn't reliably carry the Set-Cookie header on this
+  // Next version's Route Handlers (the state cookie never made it to Schwab's
+  // callback, so the round trip always failed as "invalid_state").
+  const response = NextResponse.redirect(getSchwabAuthorizationUrl(state))
+  response.cookies.set(STATE_COOKIE, state, {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
     maxAge: 600, // the whole OAuth round trip only needs a few minutes
     path: '/',
   })
-
-  redirect(getSchwabAuthorizationUrl(state))
+  return response
 }

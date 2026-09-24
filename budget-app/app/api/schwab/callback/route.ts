@@ -1,38 +1,40 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { exchangeSchwabCode } from '@/lib/schwab/oauth'
 import { syncSchwabHoldings } from '@/lib/schwab/sync'
 
 const STATE_COOKIE = 'schwab_oauth_state'
 
-export async function GET(request: Request) {
-  const url = new URL(request.url)
-  const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state')
-  const errorParam = url.searchParams.get('error')
+export async function GET(request: NextRequest) {
+  const code = request.nextUrl.searchParams.get('code')
+  const state = request.nextUrl.searchParams.get('state')
+  const errorParam = request.nextUrl.searchParams.get('error')
 
-  const cookieStore = await cookies()
-  const expectedState = cookieStore.get(STATE_COOKIE)?.value
-  cookieStore.delete(STATE_COOKIE)
+  const expectedState = request.cookies.get(STATE_COOKIE)?.value
+
+  function redirectTo(path: string): NextResponse {
+    const response = NextResponse.redirect(new URL(path, request.url))
+    response.cookies.delete(STATE_COOKIE)
+    return response
+  }
 
   if (errorParam) {
-    redirect(`/settings?schwab_error=${encodeURIComponent(errorParam)}`)
+    return redirectTo(`/settings?schwab_error=${encodeURIComponent(errorParam)}`)
   }
   if (!code || !state || !expectedState || state !== expectedState) {
-    redirect('/settings?schwab_error=invalid_state')
+    return redirectTo('/settings?schwab_error=invalid_state')
   }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirectTo('/login')
 
   const { data: member } = await supabase
     .from('household_members')
     .select('household_id')
     .eq('user_id', user.id)
     .single()
-  if (!member) redirect('/onboarding')
+  if (!member) return redirectTo('/onboarding')
 
   const admin = createAdminClient()
 
@@ -94,7 +96,7 @@ export async function GET(request: Request) {
     }
   } catch (err) {
     console.error('Schwab callback error:', err)
-    redirect('/settings?schwab_error=connect_failed')
+    return redirectTo('/settings?schwab_error=connect_failed')
   }
 
   // Best-effort, non-blocking — connection is already saved, so a sync
@@ -103,5 +105,5 @@ export async function GET(request: Request) {
     console.error('Initial Schwab sync failed:', err)
   )
 
-  redirect('/settings?schwab_connected=1')
+  return redirectTo('/settings?schwab_connected=1')
 }
