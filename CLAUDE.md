@@ -25,7 +25,7 @@ It should feel like **a shared control panel for a household's money** — not a
 
 * Couples and households who want one shared view of their finances instead of two separate mental models.
 * Each household is its own private, isolated workspace — "shared" means shared *within* a household, never across households. A household can be two people or more (roommates, family), but the couples use case is the primary design target.
-* Right now: the founder's own household plus a small circle of friends/family testing it. **Onboarding new strangers is paused** (see §6) — not because the app isn't ready in a technical sense, but because the founder concluded it doesn't yet fully deliver on its own founding purpose without investment accounts. Friends/family testing continues; it's serving a different job now (find what's missing) than growth.
+* **This is a personal project, not a company in waiting.** The founder's own household, extended to a small circle of friends and family who want to use it too — that's the intended scope, not a temporary waystation before public release. There's no plan to open this to strangers, pursue growth, or turn it into a product. See §7.
 
 ---
 
@@ -50,7 +50,8 @@ Bell Bucks should **not** become:
 * an accounting platform (double-entry ledgers, invoicing, etc.)
 * a financial marketplace (comparing/selling other products)
 * a social network (no feeds, no comparing yourself to other households)
-* an investment-*trading* platform — tracking investments is on the roadmap; executing trades is not
+
+**On trade execution specifically**: read-only investment tracking is active work (§6). Actually submitting real orders through Bell Bucks is a real long-term direction the founder is open to — but it's held to a higher bar than anything else in this app, because a bug here doesn't show a wrong number, it can move real money (wrong quantity, wrong account, a double-submitted order). It does not get built as a side effect of the tracking work, and it does not get started at all without a separate, deliberate decision later — after tracking has been stable and trustworthy for a while, and with its own dedicated safety-first design (confirmation flows, extensive testing, almost certainly preview-only for a long stretch before anything can actually submit).
 
 When evaluating a new feature, prioritize **user clarity, frequency of use, and alignment with the couple/household mission** over technical novelty or "wouldn't it be cool if." A feature that's impressive to build and rarely opened is a bad trade.
 
@@ -106,43 +107,42 @@ This is a genuinely complete MVP, not a work-in-progress. The next phase is **pr
 
 Both were seriously considered and cut — worth recording why, since it's the Feature Test in §4 actually working. `total_remaining` on the Budget page already nets planned-but-unpaid bills against spending (if rent has a line item, it's already subtracted from "remaining" before it's even paid), and per-category planned-vs-actual already answers "are we overspending on X." A dedicated Safe-to-Spend/Save calculation would have been mostly redundant with math the app already surfaces, validated against real monthly usage rather than guessed at. **Don't re-propose these** without a specific, concrete gap that remaining-budget and net-worth-trend genuinely don't cover (e.g., cash-flow *timing* within the month, not just monthly totals) — and get that gap from a real user, not a brainstorm.
 
-### Active — Investment tracking
+### Active — Investment tracking (Schwab)
 
-Schwab's Individual Trader API was previously scoped as the likely path (self-service approval, built for exactly this "connect your own accounts" use case, ~120 req/min rate limit) — revisit that research when starting real implementation work.
+The app registered with Schwab is an **Individual** Trader API app (self-service approval, no business entity needed, built for exactly this "connect your own accounts" use case). Key constraints to design around, not discover later:
 
-Once this exists, **merge the Stats page into it** rather than keeping two destinations — a net worth trend and an investment balance are the same kind of number, and Stats was already flagged as maybe not pulling its weight as its own nav item. Don't build the merged page speculatively ahead of the Schwab work landing; do it as part of the same effort, not before.
+* Refresh tokens hard-expire after **7 days**, no exceptions — full re-login and re-consent required weekly, forever. This needs a proactive "reconnect" notification (reusing the pattern already built for Plaid's reconnect-required flow), not just a reactive error when it lapses.
+* No webhooks — sync is polling-only (daily, via the existing cron pattern).
+* Endpoints in scope: account balances/positions (`/accounts`), and transaction history (`/accounts/{accountNumber}/transactions`). Nothing under `/orders` — see the trade-execution note in §4.
 
-### Paused — Get it in front of real strangers
+The fuller vision this unlocks, worth keeping in view even though only the first bullet is active work right now:
 
-*(Previously "Phase 2." Paused, not abandoned — resume when the founder decides Bell Bucks is ready to represent his own finances well, not on a timer.)*
+1. See investment balances/positions/transactions automatically, no manual entry.
+2. One combined picture: income → spending → saving → investing → net worth, instead of bank accounts, budget, and Schwab living in three separate mental models.
+3. Real investment-progress numbers: contributions vs. growth, portfolio performance, dividend/options income, net worth change over time.
+4. *(Further out, not active work)* Natural-language Q&A over real financial data — "why did our net worth change this month," "what's my portfolio allocation" — answered from actual data instead of nothing. A genuinely separate, large feature from the OAuth/sync foundation; don't conflate the two.
 
-1. Get 5–10 real non-family households using it (see Milestones below).
-2. Let *their* feedback — not another brainstorm — decide what's actually missing beyond investment tracking.
+Once investment tracking exists, **merge the Stats page into it** rather than keeping two destinations — a net worth trend and an investment balance are the same kind of number, and Stats was already flagged as maybe not pulling its weight as its own nav item. Don't build the merged page speculatively ahead of the Schwab work landing; do it as part of the same effort, not before.
 
-### Milestones (replaces "launch" as the goal)
+### Not pursuing — growing beyond friends & family
 
-1. ✅ The founder's household uses it every month. *(True, but see the note above — "uses it" and "it covers our actual finances" turned out to be different bars.)*
-2. 20 strangers use it for 60 days. *(Paused — see above.)*
-3. 10 strangers say they'd be genuinely upset if it disappeared.
-4. 5–10 strangers voluntarily offer to pay for it.
-5. 100 households pay.
+*(Previously "Phase 2," framed as paused. It's not a pause anymore — per §2, going beyond a small circle of people the founder actually knows isn't the goal.)*
 
-Each milestone is a gate, not a deadline. Don't move to monetization work (§7) before milestone 4 has real signal, not just a hope.
+### What "success" means now
+
+Replaces the old stranger-acquisition milestone ladder, which stops making sense once growth isn't the goal:
+
+1. ✅ The founder's household uses it every month.
+2. The app actually covers the household's *real* financial picture (this is what investment tracking is for — see above).
+3. Friends/family who try it find it genuinely useful, not just as a favor to the founder.
+
+No monetization milestones — see §7.
 
 ---
 
-## 7. Path to Monetization (Later — Not Now)
+## 7. Monetization — Not Pursuing
 
-Recorded here so the intent isn't lost, but explicitly **not** current work — gated on the milestones in §6, not a calendar date. In order:
-
-1. **Validate** — milestones 2-4 above, before building anything below.
-2. **Business & legal foundation** — LLC, EIN, business bank account, a real (eventually lawyer-reviewed) ToS/Privacy Policy, Stripe.
-3. **Plaid production upgrade** — a genuine Commercial/Production application (not the personal Trial/Pay-as-you-go tier), with a real cost quote at target scale before picking a price.
-4. **Product readiness** — subscription billing and plan-gating in-app, a security review, Phase 1 of §6 done.
-5. **Soft launch** — a small paid beta, real unit economics (cost per household vs. revenue per household) before spending on growth.
-6. **Scale** — marketing, SEO, possibly a native app. Not a near-term concern.
-
-The target model is subscription (Plaid is a recurring per-account cost, so revenue has to be recurring too), in the neighborhood of what Monarch Money / Copilot Money / YNAB charge (~$8–15/month) — Monarch in particular is the closest positioning competitor (couples/family-first) and worth watching, not copying. This can be a lean, profitable side business without needing to be a venture-scale company — that's a fine outcome, not a consolation prize.
+Considered earlier and set aside: Bell Bucks is a personal project for the founder's household and a small circle of friends/family (§2), not a business in progress. No LLC, no billing, no Plaid production/commercial upgrade, no pricing plan — none of that is relevant at the current scope, and there's no plan to revisit it. If that ever genuinely changes, it deserves its own fresh conversation rather than resuming a stale plan written for a different goal.
 
 ---
 
@@ -164,7 +164,8 @@ The target model is subscription (Plaid is a recurring per-account cost, so reve
 * Row-Level Security on every table; a household can only ever see its own data.
 * Webhook signatures are verified, not assumed.
 * HTTPS required everywhere.
-* Revisit this section for a real security review before charging strangers (see §7, phase 4) — reasonable today for a small trusted group is not the same bar as reasonable for the public internet.
+* Schwab access tokens live in Supabase Vault too, same as Plaid's — never in plaintext columns.
+* These principles stay in force regardless of scope — "it's just for friends and family" is not a reason to be careless with real bank/brokerage credentials.
 
 ---
 
