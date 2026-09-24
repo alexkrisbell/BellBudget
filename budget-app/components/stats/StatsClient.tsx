@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   ResponsiveContainer,
@@ -21,6 +22,7 @@ import type { StatsData } from '@/lib/stats/compute'
 import type { NetWorthData } from '@/lib/netWorth/compute'
 
 const WINDOW_OPTIONS = [3, 6, 12] as const
+type Tab = 'netWorth' | 'saved' | 'spent' | 'rate'
 
 interface Props {
   initialData: StatsData
@@ -33,6 +35,7 @@ export function StatsClient({ initialData, initialNetWorth, initialMonths }: Pro
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const setCurrentMonth = useAppStore((s) => s.setCurrentMonth)
+  const [activeTab, setActiveTab] = useState<Tab>('netWorth')
 
   const months = parseInt(searchParams.get('months') ?? String(initialMonths), 10)
   const { data } = useStats(
@@ -58,8 +61,38 @@ export function StatsClient({ initialData, initialNetWorth, initialMonths }: Pro
   }
 
   const currentMonth = data.months.at(-1)
-  const chartMonths = data.months.map((m) => ({ ...m }))
+  const chartMonths = data.months.map((m) => ({
+    ...m,
+    ratePct: m.rate !== null ? Math.round(m.rate * 1000) / 10 : null,
+  }))
   const netWorthPoints = (netWorth?.points ?? []).map((p) => ({ ...p, label: formatShortDate(p.date) }))
+
+  const tiles: Array<{ id: Tab; label: string; value: string; sub?: { text: string; positive: boolean } }> = [
+    {
+      id: 'netWorth',
+      label: 'Net worth',
+      value: netWorth?.current != null ? formatCurrency(netWorth.current) : '—',
+      sub: netWorth?.changeAmount != null
+        ? { text: `${netWorth.changeAmount >= 0 ? '+' : ''}${formatCurrency(netWorth.changeAmount)}`, positive: netWorth.changeAmount >= 0 }
+        : undefined,
+    },
+    {
+      id: 'saved',
+      label: 'This month saved',
+      value: formatCurrency(currentMonth?.saved ?? 0),
+      sub: undefined,
+    },
+    {
+      id: 'spent',
+      label: 'Avg monthly spend',
+      value: formatCurrency(data.avgMonthlySpend),
+    },
+    {
+      id: 'rate',
+      label: 'Avg savings rate',
+      value: data.avgSavingsRate !== null ? `${Math.round(data.avgSavingsRate * 100)}%` : '—',
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -81,166 +114,132 @@ export function StatsClient({ initialData, initialNetWorth, initialMonths }: Pro
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-slate-100 bg-white p-4">
-          <p className="text-xs text-slate-400 mb-0.5">Net worth</p>
-          <p className="text-xl font-semibold text-slate-800">
-            {netWorth?.current !== null && netWorth?.current !== undefined
-              ? formatCurrency(netWorth.current)
-              : '—'}
-          </p>
-          {netWorth?.changeAmount !== null && netWorth?.changeAmount !== undefined && (
-            <p className={cn('text-xs mt-0.5', netWorth.changeAmount >= 0 ? 'text-green-600' : 'text-red-600')}>
-              {netWorth.changeAmount >= 0 ? '+' : ''}
-              {formatCurrency(netWorth.changeAmount)}
-            </p>
-          )}
-        </div>
-        <div className="rounded-xl border border-slate-100 bg-white p-4">
-          <p className="text-xs text-slate-400 mb-0.5">This month saved</p>
-          <p
+        {tiles.map((tile) => (
+          <button
+            key={tile.id}
+            onClick={() => setActiveTab(tile.id)}
             className={cn(
-              'text-xl font-semibold',
-              (currentMonth?.saved ?? 0) < 0 ? 'text-red-600' : 'text-slate-800'
+              'rounded-xl border p-4 text-left transition-colors',
+              activeTab === tile.id
+                ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-indigo-200'
+                : 'border-slate-100 bg-white hover:border-slate-200'
             )}
           >
-            {formatCurrency(currentMonth?.saved ?? 0)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-100 bg-white p-4">
-          <p className="text-xs text-slate-400 mb-0.5">Avg monthly spend</p>
-          <p className="text-xl font-semibold text-slate-800">
-            {formatCurrency(data.avgMonthlySpend)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-100 bg-white p-4">
-          <p className="text-xs text-slate-400 mb-0.5">Avg savings rate</p>
-          <p className="text-xl font-semibold text-slate-800">
-            {data.avgSavingsRate !== null ? `${Math.round(data.avgSavingsRate * 100)}%` : '—'}
-          </p>
-        </div>
+            <p className="text-xs text-slate-400 mb-0.5">{tile.label}</p>
+            <p
+              className={cn(
+                'text-xl font-semibold',
+                tile.id === 'saved' && (currentMonth?.saved ?? 0) < 0 ? 'text-red-600' : 'text-slate-800'
+              )}
+            >
+              {tile.value}
+            </p>
+            {tile.sub && (
+              <p className={cn('text-xs mt-0.5', tile.sub.positive ? 'text-green-600' : 'text-red-600')}>
+                {tile.sub.text}
+              </p>
+            )}
+          </button>
+        ))}
       </div>
 
       <div className="rounded-xl border border-slate-100 bg-white p-5">
-        <p className="text-sm font-medium text-slate-600 mb-1">Net worth over time</p>
-        {netWorthPoints.length >= 2 ? (
+        {activeTab === 'netWorth' && (
           <>
-            <p className="text-xs text-slate-400 mb-4">Assets minus credit card and loan balances.</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={netWorthPoints} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 12, fill: '#94a3b8' }}
-                  axisLine={{ stroke: '#e2e8f0' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: '#94a3b8' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={64}
-                  tickFormatter={(v: number) => formatCurrency(v)}
-                />
-                <Tooltip
-                  formatter={(value) => formatCurrency(Number(value))}
-                  contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="netWorth"
+            <p className="text-sm font-medium text-slate-600 mb-1">Net worth over time</p>
+            {netWorthPoints.length >= 2 ? (
+              <>
+                <p className="text-xs text-slate-400 mb-4">Assets (including investments) minus credit card and loan balances.</p>
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={netWorthPoints} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                    <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={64} tickFormatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }} />
+                    <Line type="monotone" dataKey="netWorth" stroke="#6366f1" strokeWidth={2} dot={{ r: 3, fill: '#6366f1' }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </>
+            ) : (
+              <p className="text-sm text-slate-400 py-10 text-center">
+                Net worth history builds up day by day from when tracking started — check back soon.
+              </p>
+            )}
+          </>
+        )}
+
+        {activeTab === 'saved' && (
+          <>
+            <p className="text-sm font-medium text-slate-600 mb-1">Saved per month</p>
+            <p className="text-xs text-slate-400 mb-4">Click a bar to open that month&apos;s dashboard.</p>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={chartMonths} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={56} tickFormatter={(v: number) => formatCurrency(v)} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }} />
+                <ReferenceLine y={0} stroke="#cbd5e1" />
+                <Bar
+                  dataKey="saved"
+                  radius={[4, 4, 4, 4]}
+                  cursor="pointer"
+                  onClick={(entry) => {
+                    const m = entry?.payload as (typeof chartMonths)[number] | undefined
+                    if (m) goToMonth(m.month, m.year)
+                  }}
+                >
+                  {chartMonths.map((m) => (
+                    <Cell key={`${m.year}-${m.month}`} fill={m.saved >= 0 ? '#22c55e' : '#ef4444'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </>
+        )}
+
+        {activeTab === 'spent' && (
+          <>
+            <p className="text-sm font-medium text-slate-600 mb-1">Spent per month</p>
+            <p className="text-xs text-slate-400 mb-4">Click a bar to open that month&apos;s dashboard.</p>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={chartMonths} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={56} tickFormatter={(v: number) => formatCurrency(v)} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }} />
+                <ReferenceLine
+                  y={data.avgMonthlySpend}
                   stroke="#6366f1"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: '#6366f1' }}
+                  strokeDasharray="4 4"
+                  label={{ value: 'Avg', position: 'insideTopLeft', fontSize: 11, fill: '#6366f1' }}
                 />
+                <Bar
+                  dataKey="spent"
+                  radius={[4, 4, 4, 4]}
+                  fill="#6366f1"
+                  cursor="pointer"
+                  onClick={(entry) => {
+                    const m = entry?.payload as (typeof chartMonths)[number] | undefined
+                    if (m) goToMonth(m.month, m.year)
+                  }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </>
+        )}
+
+        {activeTab === 'rate' && (
+          <>
+            <p className="text-sm font-medium text-slate-600 mb-1">Savings rate per month</p>
+            <p className="text-xs text-slate-400 mb-4">Percent of income saved. Months with no income show as a gap.</p>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={chartMonths} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={48} tickFormatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={(value) => (value == null ? '—' : `${value}%`)} contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }} />
+                <ReferenceLine y={0} stroke="#cbd5e1" />
+                <Line type="monotone" dataKey="ratePct" stroke="#6366f1" strokeWidth={2} dot={{ r: 3, fill: '#6366f1' }} connectNulls={false} />
               </LineChart>
             </ResponsiveContainer>
           </>
-        ) : (
-          <p className="text-sm text-slate-400 py-10 text-center">
-            Net worth history builds up day by day from when tracking started — check back soon.
-          </p>
         )}
-      </div>
-
-      <div className="rounded-xl border border-slate-100 bg-white p-5">
-        <p className="text-sm font-medium text-slate-600 mb-1">Saved per month</p>
-        <p className="text-xs text-slate-400 mb-4">Click a bar to open that month&apos;s dashboard.</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={chartMonths} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 12, fill: '#94a3b8' }}
-              axisLine={{ stroke: '#e2e8f0' }}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: '#94a3b8' }}
-              axisLine={false}
-              tickLine={false}
-              width={56}
-              tickFormatter={(v: number) => formatCurrency(v)}
-            />
-            <Tooltip
-              formatter={(value) => formatCurrency(Number(value))}
-              contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }}
-            />
-            <ReferenceLine y={0} stroke="#cbd5e1" />
-            <Bar
-              dataKey="saved"
-              radius={[4, 4, 4, 4]}
-              cursor="pointer"
-              onClick={(entry) => {
-                const m = entry?.payload as (typeof chartMonths)[number] | undefined
-                if (m) goToMonth(m.month, m.year)
-              }}
-            >
-              {chartMonths.map((m) => (
-                <Cell key={`${m.year}-${m.month}`} fill={m.saved >= 0 ? '#22c55e' : '#ef4444'} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="rounded-xl border border-slate-100 bg-white p-5">
-        <p className="text-sm font-medium text-slate-600 mb-1">Spent per month</p>
-        <p className="text-xs text-slate-400 mb-4">Click a bar to open that month&apos;s dashboard.</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={chartMonths} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 12, fill: '#94a3b8' }}
-              axisLine={{ stroke: '#e2e8f0' }}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: '#94a3b8' }}
-              axisLine={false}
-              tickLine={false}
-              width={56}
-              tickFormatter={(v: number) => formatCurrency(v)}
-            />
-            <Tooltip
-              formatter={(value) => formatCurrency(Number(value))}
-              contentStyle={{ fontSize: 13, borderRadius: 8, borderColor: '#e2e8f0' }}
-            />
-            <ReferenceLine
-              y={data.avgMonthlySpend}
-              stroke="#6366f1"
-              strokeDasharray="4 4"
-              label={{ value: 'Avg', position: 'insideTopLeft', fontSize: 11, fill: '#6366f1' }}
-            />
-            <Bar
-              dataKey="spent"
-              radius={[4, 4, 4, 4]}
-              fill="#6366f1"
-              cursor="pointer"
-              onClick={(entry) => {
-                const m = entry?.payload as (typeof chartMonths)[number] | undefined
-                if (m) goToMonth(m.month, m.year)
-              }}
-            />
-          </BarChart>
-        </ResponsiveContainer>
       </div>
     </div>
   )

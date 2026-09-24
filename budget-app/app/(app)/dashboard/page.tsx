@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation'
 import { DashboardClient } from '@/components/dashboard/DashboardClient'
 import { ConnectAccountsPrompt } from '@/components/dashboard/ConnectAccountsPrompt'
 import { CreateBudgetPrompt } from '@/components/dashboard/CreateBudgetPrompt'
+import { NetWorthCard } from '@/components/dashboard/NetWorthCard'
 import { fetchDashboardRawData, computeDashboardData } from '@/lib/dashboard/compute'
+import { fetchNetWorthRawData, computeNetWorthData } from '@/lib/netWorth/compute'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -21,7 +23,7 @@ export default async function DashboardPage() {
   const month = now.getMonth() + 1
   const year = now.getFullYear()
 
-  const [{ count: accountCount }, raw] = await Promise.all([
+  const [{ count: accountCount }, raw, netWorthRaw] = await Promise.all([
     supabase
       .from('accounts')
       .select('id', { count: 'exact', head: true })
@@ -34,8 +36,10 @@ export default async function DashboardPage() {
       month,
       year,
     }),
+    fetchNetWorthRawData({ supabase, householdId: member.household_id, monthsBack: 6 }),
   ])
   const initialData = computeDashboardData(raw)
+  const netWorth = computeNetWorthData(netWorthRaw)
 
   // Guide a brand-new household through the two things that make the app
   // actually work, one at a time, before showing the (otherwise empty) full
@@ -54,7 +58,10 @@ export default async function DashboardPage() {
       ) : needsBudget ? (
         <CreateBudgetPrompt />
       ) : (
-        <DashboardClient initialData={initialData} initialMonth={month} initialYear={year} />
+        <div className="space-y-4">
+          <NetWorthCard netWorth={netWorth} />
+          <DashboardClient initialData={initialData} initialMonth={month} initialYear={year} />
+        </div>
       )}
     </div>
   )
