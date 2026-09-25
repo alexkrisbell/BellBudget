@@ -52,6 +52,11 @@ async function schwabFetch(path: string, accessToken: string): Promise<Response>
 export interface SchwabSyncResult {
   ok: boolean
   error?: string
+  // Surfaced separately from `ok`/`error` because this endpoint is unverified
+  // against live data — a transactions problem shouldn't read as the whole
+  // sync failing (holdings/balance sync is proven and shouldn't regress),
+  // but it still needs to be visible somewhere other than server logs.
+  transactionsDebug?: string[]
 }
 
 // Always refreshes before syncing rather than reusing a cached access token —
@@ -112,12 +117,12 @@ export async function syncSchwabHoldings(householdId: string): Promise<SchwabSyn
   }
 
   try {
-    await fetchAndStoreHoldings(admin, householdId, connection.id, accessToken)
+    const transactionsDebug = await fetchAndStoreHoldings(admin, householdId, connection.id, accessToken)
     await admin
       .from('brokerage_connections')
       .update({ last_synced_at: new Date().toISOString() })
       .eq('id', connection.id)
-    return { ok: true }
+    return { ok: true, transactionsDebug }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Holdings fetch failed.'
     console.error(`[syncSchwabHoldings] holdings fetch failed for household ${householdId}:`, err)
@@ -161,7 +166,9 @@ async function fetchAndStoreHoldings(
   householdId: string,
   connectionId: string,
   accessToken: string
-): Promise<void> {
+): Promise<string[]> {
+  const transactionsDebug: string[] = []
+
   const numbersRes = await schwabFetch('/accounts/accountNumbers', accessToken)
   if (!numbersRes.ok) throw new Error(`accountNumbers fetch failed: ${numbersRes.status}`)
   const accountNumbers: SchwabAccountNumber[] = await numbersRes.json()
@@ -243,13 +250,20 @@ async function fetchAndStoreHoldings(
     // Caught locally rather than propagated: this endpoint is unverified
     // against live data, and a failure here shouldn't regress the holdings/
     // balance sync (which already works) into reporting the whole sync as
-    // failed. Visible in server logs; not yet surfaced to the "Sync Now" UI.
+    // failed. Collected into transactionsDebug so it's visible in the
+    // "Sync Now" UI instead of only in server logs.
+    const last4Label = last4 ?? hashValue.slice(-4)
     try {
-      await fetchAndStoreTransactions(admin, householdId, investmentAccount.id, hashValue, accessToken)
+      const debugLine = await fetchAndStoreTransactions(admin, householdId, investmentAccount.id, hashValue, accessToken)
+      transactionsDebug.push(`····${last4Label}: ${debugLine}`)
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      transactionsDebug.push(`····${last4Label}: failed — ${message}`)
       console.error(`[fetchAndStoreHoldings] transactions fetch failed for account ${investmentAccount.id}:`, err)
     }
   }
+
+  return transactionsDebug
 }
 
 // Fetches a trailing window on every sync rather than tracking "since last
@@ -265,7 +279,7 @@ async function fetchAndStoreTransactions(
   investmentAccountId: string,
   hashValue: string,
   accessToken: string
-): Promise<void> {
+): Promise<string> {
   const end = new Date()
   const start = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000)
   const params = new URLSearchParams({
@@ -274,8 +288,28 @@ async function fetchAndStoreTransactions(
   })
 
   const res = await schwabFetch(`/accounts/${hashValue}/transactions?${params.toString()}`, accessToken)
-  if (!res.ok) throw new Error(`transactions fetch failed: ${res.status}`)
-  const transactions: SchwabTransaction[] = await res.json()
+  const rawText = await res.text()
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${rawText.slice(0, 200)}`)
+
+  let body: unknown
+  try {
+    body = JSON.parse(rawText)
+  } catch {
+    throw new Error(`non-JSON response — ${rawText.slice(0, 200)}`)
+  }
+
+  // Defensive: this endpoint's response shape wasn't verified against live
+  // data before this shipped, so a wrapped object instead of a bare array
+  // is a real possibility, not just theoretical.
+  const transactions: SchwabTransaction[] = Array.isArray(body)
+    ? body
+    : Array.isArray((body as { transactions?: unknown })?.transactions)
+      ? (body as { transactions: SchwabTransaction[] }).transactions
+      : []
+
+  if (!Array.isArray(body) && transactions.length === 0) {
+    return `unexpected response shape — ${JSON.stringify(body).slice(0, 200)}`
+  }
 
   const rows = transactions
     .filter((t) => t.activityId != null && t.netAmount != null)
@@ -295,10 +329,15 @@ async function fetchAndStoreTransactions(
       }
     })
 
-  if (rows.length === 0) return
+  if (transactions.length > 0 && rows.length === 0) {
+    return `fetched ${transactions.length} but none matched the expected fields — sample: ${JSON.stringify(transactions[0]).slice(0, 200)}`
+  }
+  if (rows.length === 0) return 'fetched 0 (none in the last 60 days)'
 
   const { error } = await admin
     .from('investment_transactions')
     .upsert(rows, { onConflict: 'investment_account_id,schwab_activity_id' })
   if (error) throw new Error(`investment_transactions upsert failed: ${error.message}`)
+
+  return `stored ${rows.length}`
 }

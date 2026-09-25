@@ -92,14 +92,16 @@ export async function POST(request: Request) {
 
   let investmentsSynced = false
   let investmentsError: string | undefined
+  let transactionsDebug: string[] | undefined
   if (brokerageConnection) {
     const result = await syncSchwabHoldings(member.household_id)
     investmentsSynced = result.ok
+    transactionsDebug = result.transactionsDebug
     if (!result.ok) {
       console.error('Manual Schwab sync failed:', result.error)
       investmentsError = result.error
     }
   }
 
-  return Response.json({ ...totals, investmentsSynced, investmentsError })
+  return Response.json({ ...totals, investmentsSynced, investmentsError, transactionsDebug })
 }
