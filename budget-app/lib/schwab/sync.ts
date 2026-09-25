@@ -282,12 +282,32 @@ async function fetchAndStoreTransactions(
 ): Promise<string> {
   const end = new Date()
   const start = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000)
-  // Schwab expects plain YYYY-MM-DD here, not a full ISO datetime — sending
-  // the time/milliseconds component (the original bug) doesn't error, it
-  // just silently matches nothing.
+  // A plain YYYY-MM-DD date was rejected outright by Schwab ("not a valid
+  // value for startDate") — full ISO datetime is what it actually wants.
+  // The empty results before that weren't a date-format problem at all;
+  // `types` being unset appears to mean "match nothing" rather than "match
+  // everything," so it's now passed explicitly with every known type.
+  const ALL_TRANSACTION_TYPES = [
+    'TRADE',
+    'RECEIVE_AND_DELIVER',
+    'DIVIDEND_OR_INTEREST',
+    'ACH_RECEIPT',
+    'ACH_DISBURSEMENT',
+    'CASH_RECEIPT',
+    'CASH_DISBURSEMENT',
+    'ELECTRONIC_FUND',
+    'WIRE_OUT',
+    'WIRE_IN',
+    'JOURNAL',
+    'MEMORANDUM',
+    'MARGIN_CALL',
+    'MONEY_MARKET',
+    'SMA_ADJUSTMENT',
+  ].join(',')
   const params = new URLSearchParams({
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
+    types: ALL_TRANSACTION_TYPES,
   })
 
   const res = await schwabFetch(`/accounts/${hashValue}/transactions?${params.toString()}`, accessToken)
