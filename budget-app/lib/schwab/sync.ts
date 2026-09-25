@@ -305,8 +305,16 @@ async function fetchAndStoreTransactions(
   hashValue: string,
   accessToken: string
 ): Promise<string> {
-  const end = new Date()
-  const start = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000)
+  // Normalized to day boundaries (midnight start, end-of-day end) rather
+  // than the exact current moment — a documented bug against this same
+  // Schwab endpoint (tradetally#274) traced empty results to non-boundary
+  // timestamps confusing its date-range matching. hashValue and the account
+  // path are already confirmed fine via the probe below, so this is the
+  // next most concrete lead.
+  const now = new Date()
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999))
+  const startDay = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000)
+  const start = new Date(Date.UTC(startDay.getUTCFullYear(), startDay.getUTCMonth(), startDay.getUTCDate(), 0, 0, 0, 0))
 
   // Isolating a variable: hashValue has only ever been proven to work as a
   // matching key inside the bulk /accounts?fields=positions response — the
