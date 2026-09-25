@@ -273,6 +273,31 @@ async function fetchAndStoreHoldings(
 // transaction harmless. 60 days is a conservative guess at this endpoint's
 // allowed range, not a confirmed Schwab limit — worth widening once real
 // data confirms it works.
+// A joined multi-value `types=TRADE,DIVIDEND_OR_INTEREST,...` string came
+// back with zero results even for an account with a trade confirmed to have
+// happened days earlier — suggesting `types` may only accept a single enum
+// value at a time rather than a list, not just "unset means match nothing"
+// as previously assumed. Querying once per type hedges against that without
+// more guessing; the unique constraint on schwab_activity_id makes it safe
+// for the same transaction to come back from more than one type's request.
+const TRANSACTION_TYPES = [
+  'TRADE',
+  'RECEIVE_AND_DELIVER',
+  'DIVIDEND_OR_INTEREST',
+  'ACH_RECEIPT',
+  'ACH_DISBURSEMENT',
+  'CASH_RECEIPT',
+  'CASH_DISBURSEMENT',
+  'ELECTRONIC_FUND',
+  'WIRE_OUT',
+  'WIRE_IN',
+  'JOURNAL',
+  'MEMORANDUM',
+  'MARGIN_CALL',
+  'MONEY_MARKET',
+  'SMA_ADJUSTMENT',
+]
+
 async function fetchAndStoreTransactions(
   admin: AdminClient,
   householdId: string,
@@ -282,80 +307,87 @@ async function fetchAndStoreTransactions(
 ): Promise<string> {
   const end = new Date()
   const start = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000)
-  // A plain YYYY-MM-DD date was rejected outright by Schwab ("not a valid
-  // value for startDate") — full ISO datetime is what it actually wants.
-  // The empty results before that weren't a date-format problem at all;
-  // `types` being unset appears to mean "match nothing" rather than "match
-  // everything," so it's now passed explicitly with every known type.
-  const ALL_TRANSACTION_TYPES = [
-    'TRADE',
-    'RECEIVE_AND_DELIVER',
-    'DIVIDEND_OR_INTEREST',
-    'ACH_RECEIPT',
-    'ACH_DISBURSEMENT',
-    'CASH_RECEIPT',
-    'CASH_DISBURSEMENT',
-    'ELECTRONIC_FUND',
-    'WIRE_OUT',
-    'WIRE_IN',
-    'JOURNAL',
-    'MEMORANDUM',
-    'MARGIN_CALL',
-    'MONEY_MARKET',
-    'SMA_ADJUSTMENT',
-  ].join(',')
-  const params = new URLSearchParams({
-    startDate: start.toISOString(),
-    endDate: end.toISOString(),
-    types: ALL_TRANSACTION_TYPES,
-  })
 
-  const res = await schwabFetch(`/accounts/${hashValue}/transactions?${params.toString()}`, accessToken)
-  const rawText = await res.text()
-  if (!res.ok) throw new Error(`HTTP ${res.status} — ${rawText.slice(0, 200)}`)
+  // Parallelized (not a sequential loop) — 15 requests per account run
+  // serially would risk the manual "Sync Now" call blowing past Vercel's
+  // function timeout.
+  const perType = await Promise.all(
+    TRANSACTION_TYPES.map(async (type): Promise<{ type: string; parsed: SchwabTransaction[]; issue?: string }> => {
+      const params = new URLSearchParams({
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        types: type,
+      })
 
-  let body: unknown
-  try {
-    body = JSON.parse(rawText)
-  } catch {
-    throw new Error(`non-JSON response — ${rawText.slice(0, 200)}`)
-  }
-
-  // Defensive: this endpoint's response shape wasn't verified against live
-  // data before this shipped, so a wrapped object instead of a bare array
-  // is a real possibility, not just theoretical.
-  const transactions: SchwabTransaction[] = Array.isArray(body)
-    ? body
-    : Array.isArray((body as { transactions?: unknown })?.transactions)
-      ? (body as { transactions: SchwabTransaction[] }).transactions
-      : []
-
-  if (!Array.isArray(body) && transactions.length === 0) {
-    return `unexpected response shape — ${JSON.stringify(body).slice(0, 200)}`
-  }
-
-  const rows = transactions
-    .filter((t) => t.activityId != null && t.netAmount != null)
-    .map((t) => {
-      const rawType = t.type ?? 'UNKNOWN'
-      const dateStr = t.tradeDate ?? t.time
-      return {
-        household_id: householdId,
-        investment_account_id: investmentAccountId,
-        schwab_activity_id: String(t.activityId),
-        type: rawType,
-        category: classifyTransaction(rawType),
-        symbol: t.transferItems?.[0]?.instrument?.symbol ?? null,
-        amount: t.netAmount!,
-        description: t.description ?? null,
-        transacted_at: dateStr ? dateStr.slice(0, 10) : new Date().toISOString().slice(0, 10),
+      const res = await schwabFetch(`/accounts/${hashValue}/transactions?${params.toString()}`, accessToken)
+      const rawText = await res.text()
+      if (!res.ok) {
+        return { type, parsed: [], issue: `HTTP ${res.status} — ${rawText.slice(0, 150)}` }
       }
-    })
 
-  if (transactions.length > 0 && rows.length === 0) {
+      let body: unknown
+      try {
+        body = JSON.parse(rawText)
+      } catch {
+        return { type, parsed: [], issue: `non-JSON — ${rawText.slice(0, 150)}` }
+      }
+
+      const parsed: SchwabTransaction[] = Array.isArray(body)
+        ? body
+        : Array.isArray((body as { transactions?: unknown })?.transactions)
+          ? (body as { transactions: SchwabTransaction[] }).transactions
+          : []
+
+      if (!Array.isArray(body) && parsed.length === 0) {
+        return { type, parsed: [], issue: `unexpected shape — ${JSON.stringify(body).slice(0, 150)}` }
+      }
+
+      return { type, parsed }
+    })
+  )
+
+  const transactions: SchwabTransaction[] = []
+  const issues: string[] = []
+  for (const { type, parsed, issue } of perType) {
+    if (issue) issues.push(`${type}: ${issue}`)
+    transactions.push(...parsed)
+  }
+
+  if (transactions.length === 0) {
+    return issues.length > 0
+      ? `0 across all types; issues: ${issues.join(' | ')}`
+      : `0 across all ${TRANSACTION_TYPES.length} types (Schwab returned empty arrays for every type)`
+  }
+
+  const rowsByActivityId = new Map<string, ReturnType<typeof buildRow>>()
+  function buildRow(t: SchwabTransaction) {
+    const rawType = t.type ?? 'UNKNOWN'
+    const dateStr = t.tradeDate ?? t.time
+    return {
+      household_id: householdId,
+      investment_account_id: investmentAccountId,
+      schwab_activity_id: String(t.activityId),
+      type: rawType,
+      category: classifyTransaction(rawType),
+      symbol: t.transferItems?.[0]?.instrument?.symbol ?? null,
+      amount: t.netAmount!,
+      description: t.description ?? null,
+      transacted_at: dateStr ? dateStr.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    }
+  }
+  // Deduped by activity id — the same transaction could plausibly come back
+  // from more than one type's request if Schwab's per-type filter isn't
+  // perfectly exclusive, and Postgres upsert errors on a batch that affects
+  // the same conflict target twice.
+  for (const t of transactions) {
+    if (t.activityId == null || t.netAmount == null) continue
+    rowsByActivityId.set(String(t.activityId), buildRow(t))
+  }
+  const rows = [...rowsByActivityId.values()]
+
+  if (rows.length === 0) {
     return `fetched ${transactions.length} but none matched the expected fields — sample: ${JSON.stringify(transactions[0]).slice(0, 200)}`
   }
-  if (rows.length === 0) return 'fetched 0 (none in the last 60 days)'
 
   const { error } = await admin
     .from('investment_transactions')
