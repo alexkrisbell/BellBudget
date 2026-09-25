@@ -94,6 +94,20 @@ export interface InvestmentAccount {
   created_at: string
 }
 
+export interface InvestmentTransaction {
+  id: string
+  household_id: string
+  investment_account_id: string
+  schwab_activity_id: string
+  type: string
+  category: 'contribution' | 'withdrawal' | 'dividend_or_interest' | 'trade' | 'transfer' | 'fee' | 'other'
+  symbol: string | null
+  amount: number
+  description: string | null
+  transacted_at: string
+  created_at: string
+}
+
 export interface InvestmentHolding {
   id: string
   household_id: string

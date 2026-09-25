@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications/create'
+import { classifyTransaction } from '@/lib/investments/classify'
 import { SCHWAB_API_BASE } from './client'
 import { refreshSchwabToken } from './oauth'
 
@@ -27,6 +28,19 @@ interface SchwabSecuritiesAccount {
 
 interface SchwabAccountResponse {
   securitiesAccount: SchwabSecuritiesAccount
+}
+
+// This endpoint's exact response shape is less publicly documented than
+// /accounts — treated defensively (optional fields, fallbacks) since it
+// wasn't verified against live data before this shipped.
+interface SchwabTransaction {
+  activityId?: number | string
+  time?: string
+  tradeDate?: string
+  type?: string
+  netAmount?: number
+  description?: string
+  transferItems?: Array<{ instrument?: { symbol?: string } }>
 }
 
 async function schwabFetch(path: string, accessToken: string): Promise<Response> {
@@ -225,5 +239,66 @@ async function fetchAndStoreHoldings(
         .upsert(holdingRows, { onConflict: 'investment_account_id,symbol,date' })
       if (holdingsError) throw new Error(`investment_holdings upsert failed: ${holdingsError.message}`)
     }
+
+    // Caught locally rather than propagated: this endpoint is unverified
+    // against live data, and a failure here shouldn't regress the holdings/
+    // balance sync (which already works) into reporting the whole sync as
+    // failed. Visible in server logs; not yet surfaced to the "Sync Now" UI.
+    try {
+      await fetchAndStoreTransactions(admin, householdId, investmentAccount.id, hashValue, accessToken)
+    } catch (err) {
+      console.error(`[fetchAndStoreHoldings] transactions fetch failed for account ${investmentAccount.id}:`, err)
+    }
   }
+}
+
+// Fetches a trailing window on every sync rather than tracking "since last
+// sync" — Schwab activity volume for a personal account is low enough that
+// re-fetching a 60-day overlap daily is cheap, and the unique constraint on
+// (investment_account_id, schwab_activity_id) makes re-fetching the same
+// transaction harmless. 60 days is a conservative guess at this endpoint's
+// allowed range, not a confirmed Schwab limit — worth widening once real
+// data confirms it works.
+async function fetchAndStoreTransactions(
+  admin: AdminClient,
+  householdId: string,
+  investmentAccountId: string,
+  hashValue: string,
+  accessToken: string
+): Promise<void> {
+  const end = new Date()
+  const start = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000)
+  const params = new URLSearchParams({
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
+  })
+
+  const res = await schwabFetch(`/accounts/${hashValue}/transactions?${params.toString()}`, accessToken)
+  if (!res.ok) throw new Error(`transactions fetch failed: ${res.status}`)
+  const transactions: SchwabTransaction[] = await res.json()
+
+  const rows = transactions
+    .filter((t) => t.activityId != null && t.netAmount != null)
+    .map((t) => {
+      const rawType = t.type ?? 'UNKNOWN'
+      const dateStr = t.tradeDate ?? t.time
+      return {
+        household_id: householdId,
+        investment_account_id: investmentAccountId,
+        schwab_activity_id: String(t.activityId),
+        type: rawType,
+        category: classifyTransaction(rawType),
+        symbol: t.transferItems?.[0]?.instrument?.symbol ?? null,
+        amount: t.netAmount!,
+        description: t.description ?? null,
+        transacted_at: dateStr ? dateStr.slice(0, 10) : new Date().toISOString().slice(0, 10),
+      }
+    })
+
+  if (rows.length === 0) return
+
+  const { error } = await admin
+    .from('investment_transactions')
+    .upsert(rows, { onConflict: 'investment_account_id,schwab_activity_id' })
+  if (error) throw new Error(`investment_transactions upsert failed: ${error.message}`)
 }
