@@ -308,6 +308,23 @@ async function fetchAndStoreTransactions(
   const end = new Date()
   const start = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000)
 
+  // Isolating a variable: hashValue has only ever been proven to work as a
+  // matching key inside the bulk /accounts?fields=positions response — the
+  // holdings sync never actually puts it in a URL path. This checks whether
+  // hashValue works as a path segment for ANY endpoint, to tell apart "the
+  // transactions endpoint specifically has a problem" from "hashValue in a
+  // path doesn't work at all."
+  let singleAccountProbe: string
+  try {
+    const probeRes = await schwabFetch(`/accounts/${encodeURIComponent(hashValue)}`, accessToken)
+    const probeText = await probeRes.text()
+    singleAccountProbe = probeRes.ok
+      ? `single-account fetch OK (${probeText.length} bytes)`
+      : `single-account fetch HTTP ${probeRes.status} — ${probeText.slice(0, 150)}`
+  } catch (err) {
+    singleAccountProbe = `single-account fetch threw — ${err instanceof Error ? err.message : String(err)}`
+  }
+
   // Parallelized (not a sequential loop) — 15 requests per account run
   // serially would risk the manual "Sync Now" call blowing past Vercel's
   // function timeout.
@@ -359,8 +376,8 @@ async function fetchAndStoreTransactions(
     const hashInfo = `hashValue len=${hashValue.length}, urlEncoded=${hashValue !== encodeURIComponent(hashValue)}`
     const rangeInfo = `range=${start.toISOString()}..${end.toISOString()}`
     return issues.length > 0
-      ? `0 across all types (${hashInfo}, ${rangeInfo}); issues: ${issues.join(' | ')}`
-      : `0 across all ${TRANSACTION_TYPES.length} types (${hashInfo}, ${rangeInfo})`
+      ? `0 across all types (${hashInfo}, ${rangeInfo}, ${singleAccountProbe}); issues: ${issues.join(' | ')}`
+      : `0 across all ${TRANSACTION_TYPES.length} types (${hashInfo}, ${rangeInfo}, ${singleAccountProbe})`
   }
 
   const rowsByActivityId = new Map<string, ReturnType<typeof buildRow>>()
