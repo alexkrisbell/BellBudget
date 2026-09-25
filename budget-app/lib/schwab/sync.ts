@@ -319,7 +319,9 @@ async function fetchAndStoreTransactions(
         types: type,
       })
 
-      const res = await schwabFetch(`/accounts/${hashValue}/transactions?${params.toString()}`, accessToken)
+      // hashValue is Schwab's "encrypted value" for the account — URL-encoded
+      // defensively since it's never been confirmed plain-alphanumeric.
+      const res = await schwabFetch(`/accounts/${encodeURIComponent(hashValue)}/transactions?${params.toString()}`, accessToken)
       const rawText = await res.text()
       if (!res.ok) {
         return { type, parsed: [], issue: `HTTP ${res.status} — ${rawText.slice(0, 150)}` }
@@ -354,9 +356,11 @@ async function fetchAndStoreTransactions(
   }
 
   if (transactions.length === 0) {
+    const hashInfo = `hashValue len=${hashValue.length}, urlEncoded=${hashValue !== encodeURIComponent(hashValue)}`
+    const rangeInfo = `range=${start.toISOString()}..${end.toISOString()}`
     return issues.length > 0
-      ? `0 across all types; issues: ${issues.join(' | ')}`
-      : `0 across all ${TRANSACTION_TYPES.length} types (Schwab returned empty arrays for every type)`
+      ? `0 across all types (${hashInfo}, ${rangeInfo}); issues: ${issues.join(' | ')}`
+      : `0 across all ${TRANSACTION_TYPES.length} types (${hashInfo}, ${rangeInfo})`
   }
 
   const rowsByActivityId = new Map<string, ReturnType<typeof buildRow>>()
