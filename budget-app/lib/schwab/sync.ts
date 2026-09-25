@@ -282,9 +282,12 @@ async function fetchAndStoreTransactions(
 ): Promise<string> {
   const end = new Date()
   const start = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000)
+  // Schwab expects plain YYYY-MM-DD here, not a full ISO datetime — sending
+  // the time/milliseconds component (the original bug) doesn't error, it
+  // just silently matches nothing.
   const params = new URLSearchParams({
-    startDate: start.toISOString(),
-    endDate: end.toISOString(),
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
   })
 
   const res = await schwabFetch(`/accounts/${hashValue}/transactions?${params.toString()}`, accessToken)
